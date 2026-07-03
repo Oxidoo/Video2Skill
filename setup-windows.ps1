@@ -1,41 +1,72 @@
-# Video2Skill - installation et lancement automatiques sous Windows.
+# Video2Skill - installation SANS DROITS ADMIN et lancement sous Windows.
 # Usage :  powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+# Node.js et FFmpeg sont installes en versions portables dans %LOCALAPPDATA%\Video2Skill.
 # NOTE: fichier volontairement sans accents (compatibilite encodage PowerShell 5.1).
 
 $ErrorActionPreference = "Stop"
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-function Refresh-Path {
-    $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
-                [Environment]::GetEnvironmentVariable("Path", "User")
+$toolsDir = Join-Path $env:LOCALAPPDATA "Video2Skill"
+New-Item -ItemType Directory -Force -Path $toolsDir | Out-Null
+
+function Add-UserPath($dir) {
+    $env:Path = "$dir;" + $env:Path
+    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    if ($userPath -notlike "*$dir*") {
+        [Environment]::SetEnvironmentVariable("Path", "$dir;$userPath", "User")
+    }
 }
 
-function Ensure-Tool($cmd, $wingetId, $extraPath) {
-    if (Get-Command $cmd -ErrorAction SilentlyContinue) {
-        Write-Host "[OK] $cmd deja installe" -ForegroundColor Green
-        return
-    }
-    Write-Host "[..] Installation de $wingetId ..." -ForegroundColor Yellow
-    winget install --id $wingetId -e --accept-source-agreements --accept-package-agreements
-    Refresh-Path
-    if ($extraPath -and -not (Get-Command $cmd -ErrorAction SilentlyContinue)) {
-        $env:Path += ";$extraPath"
-        [Environment]::SetEnvironmentVariable("Path",
-            [Environment]::GetEnvironmentVariable("Path", "User") + ";$extraPath", "User")
-    }
-    if (-not (Get-Command $cmd -ErrorAction SilentlyContinue)) {
-        Write-Host "[!!] $cmd introuvable apres installation. Ferme et rouvre PowerShell, puis relance ce script." -ForegroundColor Red
-        exit 1
-    }
-    Write-Host "[OK] $cmd installe" -ForegroundColor Green
+Write-Host "=== Video2Skill - setup Windows (sans admin) ===" -ForegroundColor Cyan
+
+# ---------- Node.js portable ----------
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    Write-Host "[..] Telechargement de Node.js portable (~30 MB) ..." -ForegroundColor Yellow
+    $nodeVersion = "v22.14.0"
+    $nodeZip = Join-Path $toolsDir "node.zip"
+    Invoke-WebRequest "https://nodejs.org/dist/$nodeVersion/node-$nodeVersion-win-x64.zip" -OutFile $nodeZip
+    Expand-Archive $nodeZip -DestinationPath $toolsDir -Force
+    Remove-Item $nodeZip
+    Add-UserPath (Join-Path $toolsDir "node-$nodeVersion-win-x64")
+    Write-Host "[OK] Node.js installe (portable)" -ForegroundColor Green
+} else {
+    Write-Host "[OK] node deja installe" -ForegroundColor Green
 }
 
-Write-Host "=== Video2Skill - setup Windows ===" -ForegroundColor Cyan
+# ---------- FFmpeg portable ----------
+if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
+    Write-Host "[..] Telechargement de FFmpeg portable (~90 MB) ..." -ForegroundColor Yellow
+    $ffZip = Join-Path $toolsDir "ffmpeg.zip"
+    Invoke-WebRequest "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile $ffZip
+    Expand-Archive $ffZip -DestinationPath $toolsDir -Force
+    Remove-Item $ffZip
+    $ffDir = Get-ChildItem $toolsDir -Directory | Where-Object { $_.Name -like "ffmpeg-*" } | Select-Object -First 1
+    Add-UserPath (Join-Path $ffDir.FullName "bin")
+    Write-Host "[OK] FFmpeg installe (portable)" -ForegroundColor Green
+} else {
+    Write-Host "[OK] ffmpeg deja installe" -ForegroundColor Green
+}
 
-Ensure-Tool "node" "OpenJS.NodeJS.LTS" $null
-Ensure-Tool "ffmpeg" "Gyan.FFmpeg" $null
-Ensure-Tool "tesseract" "UB-Mannheim.TesseractOCR" "C:\Program Files\Tesseract-OCR"
+# ---------- Tesseract (optionnel : sans lui, l'OCR est saute mais l'app fonctionne) ----------
+$tessDefault = "C:\Program Files\Tesseract-OCR"
+if (Test-Path (Join-Path $tessDefault "tesseract.exe")) { Add-UserPath $tessDefault }
+if (-not (Get-Command tesseract -ErrorAction SilentlyContinue)) {
+    Write-Host "[..] Tentative d'installation de Tesseract (peut demander admin) ..." -ForegroundColor Yellow
+    try {
+        winget install --id UB-Mannheim.TesseractOCR -e --scope user --accept-source-agreements --accept-package-agreements
+        if (Test-Path (Join-Path $tessDefault "tesseract.exe")) { Add-UserPath $tessDefault }
+    } catch { }
+    if (Get-Command tesseract -ErrorAction SilentlyContinue) {
+        Write-Host "[OK] Tesseract installe" -ForegroundColor Green
+    } else {
+        Write-Host "[!!] Tesseract non installe (droits admin requis). L'app fonctionnera SANS OCR." -ForegroundColor Yellow
+        Write-Host "     L'analyse visuelle IA des captures compensera en grande partie." -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "[OK] tesseract deja installe" -ForegroundColor Green
+}
 
-# Cles API -> .env.local (jamais commite)
+# ---------- Cles API -> .env.local (jamais commite) ----------
 if (-not (Test-Path ".env.local")) {
     Write-Host ""
     Write-Host "Configuration des cles API (stockees dans .env.local, hors git) :" -ForegroundColor Cyan
@@ -52,6 +83,7 @@ if (-not (Test-Path ".env.local")) {
     Write-Host "[OK] .env.local existe deja" -ForegroundColor Green
 }
 
+# ---------- Dependances + lancement ----------
 Write-Host "[..] npm install ..." -ForegroundColor Yellow
 npm install
 if ($LASTEXITCODE -ne 0) { Write-Host "[!!] npm install a echoue" -ForegroundColor Red; exit 1 }
