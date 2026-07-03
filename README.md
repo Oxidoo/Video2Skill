@@ -34,7 +34,18 @@ sudo apt update
 sudo apt install ffmpeg tesseract-ocr tesseract-ocr-fra tesseract-ocr-eng
 ```
 
-## Installation
+## Option la plus simple : Docker (rien d'autre à installer)
+
+Avec [Docker Desktop](https://www.docker.com/products/docker-desktop/) installé, pas besoin de Node, FFmpeg ni Tesseract :
+
+```bash
+# créer .env.local avec tes clés (voir .env.example), puis :
+docker compose up --build
+```
+
+Ouvre http://localhost:3000. Les jobs sont persistés dans `./data`.
+
+## Installation manuelle
 
 ```bash
 npm install
