@@ -34,7 +34,15 @@ sudo apt update
 sudo apt install ffmpeg tesseract-ocr tesseract-ocr-fra tesseract-ocr-eng
 ```
 
-## Option la plus simple : Docker (rien d'autre à installer)
+## Windows : installation automatique
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+```
+
+Le script installe Node.js, FFmpeg et Tesseract si absents, demande tes clés API, installe les dépendances et lance l'app sur http://localhost:3000.
+
+## Option Docker (rien d'autre à installer)
 
 Avec [Docker Desktop](https://www.docker.com/products/docker-desktop/) installé, pas besoin de Node, FFmpeg ni Tesseract :
 
