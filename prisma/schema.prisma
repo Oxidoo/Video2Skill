@@ -1,0 +1,137 @@
+// Video2Skill data model.
+// Postgres works well with Neon / Supabase / Vercel Postgres — the connection
+// string is fully swappable via DATABASE_URL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth.js (NextAuth v5) models — required shape for @auth/prisma-adapter.
+// ---------------------------------------------------------------------------
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Application models.
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+
+  // Commercial fields.
+  credits Int     @default(0) // current usable balance (see CreditTransaction ledger)
+  isAdmin Boolean @default(false)
+
+  accounts     Account[]
+  sessions     Session[]
+  jobs         Job[]
+  transactions CreditTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// A single video -> skill.md processing job.
+model Job {
+  id       String @id @default(cuid())
+  userId   String
+  fileName String
+
+  // Lifecycle. status is the coarse state the UI branches on; stage is the
+  // fine-grained pipeline step (mirrors JobStage in src/lib/schemas.ts).
+  status   String @default("queued") // queued | processing | done | failed
+  stage    String @default("queued")
+  progress Int    @default(0)
+  message  String @default("")
+  error    String?
+
+  options Json // JobOptions (ultraPrecise, language, ...)
+
+  // Storage (Vercel Blob / S3). The video is uploaded directly by the browser;
+  // outputs are written back by the worker.
+  videoUrl    String?
+  videoBytes  Int?
+  durationSec Float?
+  skillUrl    String?
+  reportUrl   String?
+  timelineUrl String?
+
+  qualityScore Int?
+  meta         Json?
+
+  // Credit accounting. Reserved on submit, settled on completion.
+  creditsReserved Int  @default(0)
+  creditsCharged  Int?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+}
+
+// Append-only credit ledger. The sum of amounts for a user always equals
+// User.credits, which lets us audit every top-up and every charge.
+model CreditTransaction {
+  id     String @id @default(cuid())
+  userId String
+
+  amount      Int // + for purchase/grant/refund, - for usage
+  type        String // purchase | signup_bonus | grant | usage | adjustment | refund
+  description String?
+
+  jobId           String?
+  stripeSessionId String? @unique // idempotency guard for Stripe webhooks
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}

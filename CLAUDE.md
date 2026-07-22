@@ -1,32 +1,40 @@
 # Project: Video Skill Maker (Video2Skill)
 
 ## Goal
-Build a local web application that converts a training video into a reliable `skill.md` knowledge base.
+A hosted, commercial web application that converts a training video into a reliable `skill.md`
+knowledge base. Public site with Google auth and pay-as-you-go credits.
+
+## Architecture (hosted)
+The FFmpeg + Tesseract + long-running pipeline cannot run on Vercel serverless, so the repo is
+split into two deployables:
+- **Web app** (Vercel): landing, Google auth, credits, Stripe billing, direct-to-blob upload,
+  dashboard, download. Light and serverless-friendly.
+- **Worker** (`worker/`, container via `Dockerfile.worker`): polls Postgres for `queued` jobs,
+  runs the pipeline (`src/lib/pipeline-core.ts`), uploads `skill.md` to blob, settles credits.
+- **Postgres** (Prisma): users, jobs, credit ledger (`CreditTransaction`).
+- **Blob storage** (Vercel Blob): source videos + generated artifacts.
 
 ## Product requirements
-- Local web app.
-- Simple light theme.
-- Single page.
-- Drag and drop video upload.
-- Chunked upload for large videos.
-- Button to start processing.
-- Progress status.
-- Download generated `skill.md`.
+- Hosted web app (Vercel), light theme.
+- Google authentication (Auth.js / NextAuth v5).
+- Pay-as-you-go credits (reserve on submit, settle on completion, refund on failure).
+- Stripe checkout for buying credit packs.
+- Drag and drop video upload, chunked/multipart for large videos.
+- Progress status, download generated `skill.md`, job history.
 
 ## Technical stack
-- Next.js App Router.
-- TypeScript.
-- Tailwind CSS.
-- Local filesystem storage under `/data/jobs`.
-- FFmpeg via child process (execa).
-- Tesseract OCR via child process.
-- OpenAI API for transcription.
-- Anthropic API or OpenAI API for vision and synthesis (configurable via `.env.local`).
-- No database for MVP.
+- Next.js App Router, TypeScript, Tailwind CSS.
+- Auth.js (NextAuth v5) + Google, Prisma adapter.
+- Prisma + PostgreSQL (Neon / Supabase / Vercel Postgres).
+- Vercel Blob storage (videos + outputs).
+- Stripe for credit purchases.
+- FFmpeg + Tesseract via child process (execa) — worker only.
+- OpenAI API for transcription; Anthropic or OpenAI for vision/synthesis (configurable).
+- Nothing hardcoded — all config via env vars.
 
 ## Processing pipeline
-1. Upload video in chunks (20 MB).
-2. Assemble video.
+1. Upload video directly to blob storage (multipart) from the browser.
+2. Create a `queued` job (credits reserved); worker downloads the video.
 3. Extract metadata with ffprobe.
 4. Extract audio with FFmpeg (mono 16 kHz WAV).
 5. Split audio into 10-minute chunks.
@@ -46,13 +54,13 @@ Build a local web application that converts a training video into a reliable `sk
 - Every procedural step must be grounded in transcript, OCR, visual analysis, or timestamp.
 - Mark uncertain UI elements as uncertain.
 - Preserve timestamps (global, not per-chunk).
-- Keep intermediate JSON files for debugging (`transcript.json`, `ocr.json`, `visual_analysis.json`, `timeline.json`, `report.json`).
-- Do not delete source frames by default.
+- Keep intermediate artifacts for debugging (skill.md, report.json, timeline.json uploaded to blob under `jobs/<id>/`).
+- Do not delete source frames while a job is processing (worker cleans its temp dir after).
 
 ## Code quality
 - Use small modular files (`src/lib/*`).
 - Use Zod schemas for JSON validation (`src/lib/schemas.ts`).
 - Use typed job status (`JobStage`).
-- All long-running stages must update `job.json`.
+- All long-running stages must update the `Job` row in Postgres (status/stage/progress/message).
 - Handle failures gracefully (a failed frame must not sink the pipeline).
 - Never hardcode API keys or model names — everything in `.env.local`.

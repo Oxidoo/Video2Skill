@@ -1,9 +1,37 @@
+# Self-hosted, all-in-one stack (Postgres + web app + worker). This mirrors the
+# production split (Vercel app + separate worker) on a single machine.
+# For managed hosting use Vercel (app) + Railway/Render (worker) instead.
 services:
-  video2skill:
-    build: .
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: video2skill
+      POSTGRES_PASSWORD: video2skill
+      POSTGRES_DB: video2skill
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     env_file:
       - .env.local
-    volumes:
-      - ./data:/app/data
+    depends_on:
+      - db
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    env_file:
+      - .env.local
+    depends_on:
+      - db
+
+volumes:
+  pgdata:

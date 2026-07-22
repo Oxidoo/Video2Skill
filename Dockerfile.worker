@@ -1,0 +1,23 @@
+# Video2Skill processing worker.
+# Long-running container with FFmpeg + Tesseract. Deploy to Railway / Render /
+# Fly / any VM. It polls the database for queued jobs and processes them.
+FROM node:22-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg tesseract-ocr tesseract-ocr-fra tesseract-ocr-eng ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install ALL deps (tsx + prisma are needed to run the worker). Copy the schema
+# first so the `prisma generate` postinstall hook can find it.
+COPY package.json package-lock.json ./
+COPY prisma ./prisma
+RUN npm ci
+
+COPY tsconfig.json ./
+COPY src ./src
+COPY worker ./worker
+
+ENV NODE_ENV=production
+CMD ["npx", "tsx", "worker/index.ts"]
