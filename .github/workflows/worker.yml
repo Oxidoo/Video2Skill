@@ -15,6 +15,13 @@ on:
   repository_dispatch:
     types: [process-jobs]
   workflow_dispatch:
+  # Auto-test : toute modification du worker déclenche un drain (et ramasse
+  # au passage les jobs en attente).
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/worker.yml"
+      - "worker/**"
   schedule:
     # Filet de sécurité (si un dispatch se perd). Supprime ce bloc pour
     # économiser les minutes gratuites sur un repo privé.
