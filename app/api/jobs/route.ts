@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { recordCredit } from "@/lib/credits";
 import { creditCost } from "@/lib/billing";
 import { JobOptions } from "@/lib/schemas";
+import { triggerWorker } from "@/lib/worker-trigger";
 
 export const runtime = "nodejs";
 
@@ -23,8 +24,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const blobUrl = String(body.blobUrl ?? "");
     const fileName = String(body.fileName ?? "video.mp4").slice(0, 200);
-    const durationSec = Number(body.durationSec ?? 0);
-    const videoBytes = body.videoBytes ? Number(body.videoBytes) : null;
+    // Client-provided values are never trusted blindly: NaN/negative would
+    // corrupt the credit math (the worker re-checks the real duration anyway).
+    const rawDuration = Number(body.durationSec);
+    const durationSec =
+      Number.isFinite(rawDuration) && rawDuration > 0 ? Math.min(rawDuration, 24 * 3600) : 0;
+    const rawBytes = Number(body.videoBytes);
+    const videoBytes = Number.isFinite(rawBytes) && rawBytes > 0 ? Math.round(rawBytes) : null;
     const options = JobOptions.parse(body.options ?? {});
 
     if (!/^https?:\/\//.test(blobUrl)) {
@@ -63,6 +69,10 @@ export async function POST(req: NextRequest) {
       });
       return created;
     });
+
+    // Wake up the GitHub Actions worker (fail-soft: if not configured, the
+    // workflow's safety-net cron will pick the job up).
+    await triggerWorker();
 
     return NextResponse.json({ jobId: job.id, cost });
   } catch (err) {

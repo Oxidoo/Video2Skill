@@ -8,7 +8,11 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Supabase : DATABASE_URL = pooler transaction (6543, pgbouncer=true) pour le
+  // serverless ; DIRECT_URL = pooler session (5432) pour db push et le worker.
+  // En local, mets la même URL dans les deux.
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------------------------

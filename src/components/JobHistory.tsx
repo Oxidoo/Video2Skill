@@ -14,6 +14,7 @@ export function JobHistory() {
   const [jobs, setJobs] = useState<JobStatus[]>([]);
   const [loaded, setLoaded] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hasActive = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -22,7 +23,13 @@ export function JobHistory() {
         const res = await fetch("/api/jobs");
         if (!res.ok) return;
         const data = await res.json();
-        if (!cancelled) setJobs(data.jobs ?? []);
+        if (!cancelled) {
+          const list: JobStatus[] = data.jobs ?? [];
+          setJobs(list);
+          hasActive.current = list.some(
+            (j) => j.status === "queued" || j.status === "processing"
+          );
+        }
       } catch {
         // ignore transient errors
       } finally {
@@ -32,10 +39,7 @@ export function JobHistory() {
     load();
     // Refresh while any job is still active.
     timer.current = setInterval(() => {
-      setJobs((prev) => {
-        if (prev.some((j) => j.status === "queued" || j.status === "processing")) load();
-        return prev;
-      });
+      if (hasActive.current) load();
     }, 5000);
     return () => {
       cancelled = true;

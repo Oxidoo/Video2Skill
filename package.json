@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "worker": "tsx worker/index.ts",
+    "worker:drain": "tsx worker/index.ts --drain",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

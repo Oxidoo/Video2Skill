@@ -9,8 +9,10 @@ The FFmpeg + Tesseract + long-running pipeline cannot run on Vercel serverless, 
 split into two deployables:
 - **Web app** (Vercel): landing, Google auth, credits, Stripe billing, direct-to-blob upload,
   dashboard, download. Light and serverless-friendly.
-- **Worker** (`worker/`, container via `Dockerfile.worker`): polls Postgres for `queued` jobs,
-  runs the pipeline (`src/lib/pipeline-core.ts`), uploads `skill.md` to blob, settles credits.
+- **Worker**: GitHub Actions drain mode (`.github/workflows/worker.yml`, woken by
+  `repository_dispatch` on job creation, `npm run worker:drain`) or long-running container
+  (`Dockerfile.worker`). Polls Postgres for `queued` jobs, runs the pipeline
+  (`src/lib/pipeline-core.ts`), uploads `skill.md` to blob, settles credits.
 - **Postgres** (Prisma): users, jobs, credit ledger (`CreditTransaction`).
 - **Blob storage** (Vercel Blob): source videos + generated artifacts.
 
@@ -25,7 +27,7 @@ split into two deployables:
 ## Technical stack
 - Next.js App Router, TypeScript, Tailwind CSS.
 - Auth.js (NextAuth v5) + Google, Prisma adapter.
-- Prisma + PostgreSQL (Neon / Supabase / Vercel Postgres).
+- Prisma + PostgreSQL (Supabase — pooled `DATABASE_URL` port 6543 + `DIRECT_URL` port 5432).
 - Vercel Blob storage (videos + outputs).
 - Stripe for credit purchases.
 - FFmpeg + Tesseract via child process (execa) — worker only.

@@ -1,0 +1,74 @@
+# Worker Video2Skill sur GitHub Actions (gratuit).
+#
+# Déclenché : automatiquement par l'app à chaque job créé (repository_dispatch
+# "process-jobs"), manuellement (onglet Actions → Run workflow), et par un cron
+# de secours toutes les 6 h qui ramasse les jobs orphelins.
+#
+# Secrets à définir (repo → Settings → Secrets and variables → Actions) :
+#   DATABASE_URL           URL Supabase pooler SESSION (port 5432 — IPv4)
+#   BLOB_READ_WRITE_TOKEN  token Vercel Blob
+#   OPENAI_API_KEY         transcription
+#   ANTHROPIC_API_KEY      vision + synthèse
+name: worker
+
+on:
+  repository_dispatch:
+    types: [process-jobs]
+  workflow_dispatch:
+  schedule:
+    # Filet de sécurité (si un dispatch se perd). Supprime ce bloc pour
+    # économiser les minutes gratuites sur un repo privé.
+    - cron: "17 */6 * * *"
+
+# Un seul worker à la fois ; un dispatch pendant un run reste en attente puis
+# s'exécute (et trouve une file déjà vidée → s'arrête en ~1 min).
+concurrency:
+  group: video2skill-worker
+  cancel-in-progress: false
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Vérifier la configuration
+        id: check
+        env:
+          CONFIGURED: ${{ secrets.DATABASE_URL != '' && secrets.BLOB_READ_WRITE_TOKEN != '' && secrets.OPENAI_API_KEY != '' && secrets.ANTHROPIC_API_KEY != '' }}
+        run: |
+          echo "ok=$CONFIGURED" >> "$GITHUB_OUTPUT"
+          if [ "$CONFIGURED" != "true" ]; then
+            echo "::warning::Secrets manquants (DATABASE_URL, BLOB_READ_WRITE_TOKEN, OPENAI_API_KEY, ANTHROPIC_API_KEY) — run ignoré."
+          fi
+
+      - name: Checkout
+        if: steps.check.outputs.ok == 'true'
+        uses: actions/checkout@v4
+
+      - name: Node 22
+        if: steps.check.outputs.ok == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer FFmpeg + Tesseract
+        if: steps.check.outputs.ok == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg tesseract-ocr tesseract-ocr-fra tesseract-ocr-eng
+
+      - name: Installer les dépendances
+        if: steps.check.outputs.ok == 'true'
+        run: npm ci
+
+      - name: Traiter la file de jobs
+        if: steps.check.outputs.ok == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DATABASE_URL }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CREDITS_PER_MINUTE: ${{ vars.CREDITS_PER_MINUTE || '1' }}
+        run: npm run worker:drain

@@ -37,6 +37,13 @@ const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 5000);
 const TMP_BASE = process.env.WORKER_TMP_DIR ?? os.tmpdir();
 const PROGRESS_MIN_INTERVAL_MS = 1500;
 
+// Drain mode: process everything queued, then exit. Used by the GitHub Actions
+// workflow (each dispatch spins a runner, drains the queue and shuts down).
+const DRAIN =
+  process.argv.includes("--drain") ||
+  process.argv.includes("--once") ||
+  process.env.WORKER_MODE === "drain";
+
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -218,7 +225,9 @@ function checkEnv() {
 
 async function main() {
   checkEnv();
-  console.log(`[worker] started — polling every ${POLL_MS}ms (tmp: ${TMP_BASE})`);
+  console.log(
+    `[worker] started in ${DRAIN ? "drain" : "poll"} mode — polling every ${POLL_MS}ms (tmp: ${TMP_BASE})`
+  );
 
   let running = true;
   const stop = () => {
@@ -228,23 +237,36 @@ async function main() {
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
 
+  let consecutiveErrors = 0;
   while (running) {
     try {
       const jobId = await claimNextJob();
+      consecutiveErrors = 0;
       if (jobId) {
         console.log(`[worker] processing job ${jobId}`);
         await processJob(jobId);
         console.log(`[worker] done with job ${jobId}`);
         continue; // grab the next one immediately
       }
+      if (DRAIN) {
+        console.log("[worker] queue empty — drain mode, exiting.");
+        break;
+      }
     } catch (err) {
       console.error("[worker] loop error:", err);
+      // In drain mode a persistent DB outage must fail the CI run (visibly)
+      // instead of looping forever on a billed runner.
+      if (DRAIN && ++consecutiveErrors >= 5) {
+        console.error("[worker] too many consecutive errors in drain mode — aborting.");
+        process.exitCode = 1;
+        break;
+      }
     }
     await sleep(POLL_MS);
   }
 
   await prisma.$disconnect();
-  process.exit(0);
+  process.exit(process.exitCode ?? 0);
 }
 
 main();
