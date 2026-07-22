@@ -11,8 +11,10 @@ export const config = {
 
   openaiTranscribeModel: process.env.OPENAI_TRANSCRIBE_MODEL ?? "gpt-4o-transcribe",
   openaiVisionModel: process.env.OPENAI_VISION_MODEL ?? "gpt-4o",
-  anthropicVisionModel: process.env.ANTHROPIC_VISION_MODEL ?? "claude-opus-4-8",
-  anthropicSynthesisModel: process.env.ANTHROPIC_SYNTHESIS_MODEL ?? "claude-opus-4-8",
+  // Sonnet by default: with ~180 vision frames per video, Opus would cost more
+  // in API fees than the video earns in credits. Override via env if needed.
+  anthropicVisionModel: process.env.ANTHROPIC_VISION_MODEL ?? "claude-sonnet-5",
+  anthropicSynthesisModel: process.env.ANTHROPIC_SYNTHESIS_MODEL ?? "claude-sonnet-5",
 
   frameIntervalSec: Number(process.env.FRAME_INTERVAL_SEC ?? 5),
   sceneThreshold: Number(process.env.SCENE_THRESHOLD ?? 0.3),
