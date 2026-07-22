@@ -65,6 +65,11 @@ export function JobHistory() {
                   {new Date(j.createdAt).toLocaleString("fr-FR")}
                   {j.creditsCharged != null && ` · ${j.creditsCharged} crédits`}
                 </p>
+                {j.status === "failed" && j.error && (
+                  <p className="truncate text-xs text-red-600" title={j.error}>
+                    {j.error}
+                  </p>
+                )}
               </div>
               <div className="flex shrink-0 items-center gap-3">
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${s.className}`}>
