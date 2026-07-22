@@ -20,4 +20,4 @@ COPY src ./src
 COPY worker ./worker
 
 ENV NODE_ENV=production
-CMD ["npx", "tsx", "worker/index.ts"]
+CMD ["npx", "tsx", "worker/index.mts"]
