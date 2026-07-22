@@ -223,11 +223,22 @@ function checkEnv() {
   }
 }
 
+/** Target DB endpoint for startup logs — never includes credentials. */
+function describeDb(): string {
+  try {
+    const u = new URL(process.env.DATABASE_URL ?? "");
+    return `${u.hostname}:${u.port}${u.pathname}`;
+  } catch {
+    return "(DATABASE_URL invalide ou absente)";
+  }
+}
+
 async function main() {
   checkEnv();
   console.log(
     `[worker] started in ${DRAIN ? "drain" : "poll"} mode — polling every ${POLL_MS}ms (tmp: ${TMP_BASE})`
   );
+  console.log(`[worker] db target: ${describeDb()}`);
 
   let running = true;
   const stop = () => {
