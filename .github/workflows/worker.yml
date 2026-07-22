@@ -41,11 +41,13 @@ jobs:
       - name: Vérifier la configuration
         id: check
         env:
-          CONFIGURED: ${{ secrets.DATABASE_URL != '' && secrets.BLOB_READ_WRITE_TOKEN != '' && secrets.OPENAI_API_KEY != '' && secrets.ANTHROPIC_API_KEY != '' }}
+          # ANTHROPIC_API_KEY est optionnelle : requise seulement si un provider
+          # est configuré sur "anthropic" (repo Variables).
+          CONFIGURED: ${{ secrets.DATABASE_URL != '' && secrets.BLOB_READ_WRITE_TOKEN != '' && secrets.OPENAI_API_KEY != '' }}
         run: |
           echo "ok=$CONFIGURED" >> "$GITHUB_OUTPUT"
           if [ "$CONFIGURED" != "true" ]; then
-            echo "::warning::Secrets manquants (DATABASE_URL, BLOB_READ_WRITE_TOKEN, OPENAI_API_KEY, ANTHROPIC_API_KEY) — run ignoré."
+            echo "::warning::Secrets manquants (DATABASE_URL, BLOB_READ_WRITE_TOKEN, OPENAI_API_KEY) — run ignoré."
           fi
 
       - name: Checkout
@@ -78,4 +80,9 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CREDITS_PER_MINUTE: ${{ vars.CREDITS_PER_MINUTE || '1' }}
+          # Providers IA — modifiables sans toucher au code via
+          # Settings → Secrets and variables → Actions → Variables.
+          TRANSCRIPTION_PROVIDER: ${{ vars.TRANSCRIPTION_PROVIDER || 'openai' }}
+          VISION_PROVIDER: ${{ vars.VISION_PROVIDER || 'openai' }}
+          SYNTHESIS_PROVIDER: ${{ vars.SYNTHESIS_PROVIDER || 'openai' }}
         run: npm run worker:drain
