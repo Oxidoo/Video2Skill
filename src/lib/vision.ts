@@ -28,7 +28,7 @@ export async function analyzeFrames(
   onProgress: (done: number, total: number) => Promise<void>
 ): Promise<VisualAnalysis[]> {
   const ocrByFrame = new Map(ocrResults.map((o) => [o.frame, o.ocrText]));
-  const limit = pLimit(3);
+  const limit = pLimit(config.visionConcurrency);
   let done = 0;
 
   const results = await Promise.all(

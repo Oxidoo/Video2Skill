@@ -6,19 +6,26 @@ export const config = {
   dataDir: path.resolve(process.env.DATA_DIR ?? "./data/jobs"),
 
   transcriptionProvider: (process.env.TRANSCRIPTION_PROVIDER ?? "openai") as Provider,
-  visionProvider: (process.env.VISION_PROVIDER ?? "anthropic") as Provider,
-  synthesisProvider: (process.env.SYNTHESIS_PROVIDER ?? "anthropic") as Provider,
+  visionProvider: (process.env.VISION_PROVIDER ?? "openai") as Provider,
+  synthesisProvider: (process.env.SYNTHESIS_PROVIDER ?? "openai") as Provider,
 
   openaiTranscribeModel: process.env.OPENAI_TRANSCRIBE_MODEL ?? "gpt-4o-transcribe",
   openaiVisionModel: process.env.OPENAI_VISION_MODEL ?? "gpt-4o",
-  // Sonnet by default: with ~180 vision frames per video, Opus would cost more
-  // in API fees than the video earns in credits. Override via env if needed.
   anthropicVisionModel: process.env.ANTHROPIC_VISION_MODEL ?? "claude-sonnet-5",
   anthropicSynthesisModel: process.env.ANTHROPIC_SYNTHESIS_MODEL ?? "claude-sonnet-5",
 
   frameIntervalSec: Number(process.env.FRAME_INTERVAL_SEC ?? 5),
   sceneThreshold: Number(process.env.SCENE_THRESHOLD ?? 0.3),
   audioChunkSec: Number(process.env.AUDIO_CHUNK_SEC ?? 600),
-  maxVisionFrames: Number(process.env.MAX_VISION_FRAMES ?? 180),
+  // Balanced-fast defaults: fewer frames + more parallelism keep a typical
+  // video well under a few minutes without hurting quality much. Override for
+  // max quality with MAX_VISION_FRAMES / VISION_CONCURRENCY.
+  maxVisionFrames: Number(process.env.MAX_VISION_FRAMES ?? 60),
+  visionConcurrency: Number(process.env.VISION_CONCURRENCY ?? 4),
   ocrLangs: process.env.OCR_LANGS ?? "fra+eng",
+
+  // Per-request timeout + retries so a single slow/hung AI call can't stall a
+  // whole job for tens of minutes.
+  apiTimeoutMs: Number(process.env.API_TIMEOUT_MS ?? 90_000),
+  apiMaxRetries: Number(process.env.API_MAX_RETRIES ?? 2),
 };

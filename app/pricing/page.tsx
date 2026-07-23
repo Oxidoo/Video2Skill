@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import {
   CREDIT_PACKS,
@@ -6,6 +7,13 @@ import {
   SIGNUP_BONUS_CREDITS,
 } from "@/lib/billing";
 import { BuyButton } from "@/components/BuyButton";
+
+export const metadata: Metadata = {
+  title: "Tarifs",
+  description:
+    "Tarifs Video2Skill : paiement à l'usage en crédits, 1 crédit par minute de vidéo. Crédits offerts à l'inscription, sans abonnement.",
+  alternates: { canonical: "/pricing" },
+};
 
 export default function PricingPage() {
   return (

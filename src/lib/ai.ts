@@ -7,12 +7,18 @@ let openaiClient: OpenAI | null = null;
 
 export function anthropic(): Anthropic {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not set");
-  return (anthropicClient ??= new Anthropic());
+  return (anthropicClient ??= new Anthropic({
+    timeout: config.apiTimeoutMs,
+    maxRetries: config.apiMaxRetries,
+  }));
 }
 
 export function openai(): OpenAI {
   if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not set");
-  return (openaiClient ??= new OpenAI());
+  return (openaiClient ??= new OpenAI({
+    timeout: config.apiTimeoutMs,
+    maxRetries: config.apiMaxRetries,
+  }));
 }
 
 /** Extract the first JSON object from a model response that may include prose. */
