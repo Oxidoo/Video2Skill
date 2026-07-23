@@ -22,6 +22,7 @@ on:
     paths:
       - ".github/workflows/worker.yml"
       - "worker/**"
+      - "src/lib/**"
   schedule:
     # Filet de sécurité (si un dispatch se perd). Supprime ce bloc pour
     # économiser les minutes gratuites sur un repo privé.
@@ -36,7 +37,7 @@ concurrency:
 jobs:
   drain:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 60
     steps:
       - name: Vérifier la configuration
         id: check

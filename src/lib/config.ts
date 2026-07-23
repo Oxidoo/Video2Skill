@@ -28,4 +28,9 @@ export const config = {
   // whole job for tens of minutes.
   apiTimeoutMs: Number(process.env.API_TIMEOUT_MS ?? 90_000),
   apiMaxRetries: Number(process.env.API_MAX_RETRIES ?? 2),
+
+  // Child-process (ffmpeg/tesseract) timeouts. A hung Tesseract call used to
+  // stall the whole job at the OCR stage until the CI runner was killed.
+  ffmpegTimeoutMs: Number(process.env.FFMPEG_TIMEOUT_MS ?? 900_000),
+  ocrTimeoutMs: Number(process.env.OCR_TIMEOUT_MS ?? 30_000),
 };

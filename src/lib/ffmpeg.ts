@@ -19,7 +19,7 @@ export async function probeVideo(videoPath: string): Promise<VideoMeta> {
     "-show_entries", "stream=codec_type,width,height,r_frame_rate",
     "-of", "json",
     videoPath,
-  ]);
+  ], { timeout: config.ffmpegTimeoutMs });
   const info = JSON.parse(stdout);
   const video = info.streams?.find((s: { codec_type: string }) => s.codec_type === "video");
   const audio = info.streams?.find((s: { codec_type: string }) => s.codec_type === "audio");
@@ -38,7 +38,9 @@ export async function probeVideo(videoPath: string): Promise<VideoMeta> {
 
 export async function extractAudio(videoPath: string, audioDir: string): Promise<string[]> {
   const fullWav = path.join(audioDir, "full.wav");
-  await execa("ffmpeg", ["-y", "-i", videoPath, "-vn", "-ac", "1", "-ar", "16000", fullWav]);
+  await execa("ffmpeg", ["-y", "-i", videoPath, "-vn", "-ac", "1", "-ar", "16000", fullWav], {
+    timeout: config.ffmpegTimeoutMs,
+  });
   // Segment so each chunk stays well under transcription upload limits (25 MB).
   await execa("ffmpeg", [
     "-y", "-i", fullWav,
@@ -46,7 +48,7 @@ export async function extractAudio(videoPath: string, audioDir: string): Promise
     "-segment_time", String(config.audioChunkSec),
     "-c", "copy",
     path.join(audioDir, "chunk_%03d.wav"),
-  ]);
+  ], { timeout: config.ffmpegTimeoutMs });
   const files = (await fs.readdir(audioDir))
     .filter((f) => f.startsWith("chunk_") && f.endsWith(".wav"))
     .sort()
@@ -73,7 +75,7 @@ export async function extractFrames(
     "-y", "-i", videoPath,
     "-vf", `fps=1/${interval}`,
     path.join(framesDir, "regular_%06d.png"),
-  ]);
+  ], { timeout: config.ffmpegTimeoutMs });
 
   // Scene-change frames — recover timestamps from showinfo output (pts_time).
   const sceneTimes: number[] = [];
@@ -83,7 +85,7 @@ export async function extractFrames(
       "-vf", `select='gt(scene,${config.sceneThreshold})',showinfo`,
       "-vsync", "vfr",
       path.join(framesDir, "scene_%06d.png"),
-    ]);
+    ], { timeout: config.ffmpegTimeoutMs });
     for (const match of stderr.matchAll(/pts_time:([\d.]+)/g)) {
       sceneTimes.push(parseFloat(match[1]));
     }

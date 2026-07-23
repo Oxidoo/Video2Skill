@@ -11,12 +11,11 @@ export async function runOcr(frames: ExtractedFrame[]): Promise<OcrResult[]> {
     frames.map((frame) =>
       limit(async (): Promise<OcrResult> => {
         try {
-          const { stdout } = await execa("tesseract", [
-            frame.file,
-            "stdout",
-            "-l", config.ocrLangs,
-            "--psm", "6",
-          ]);
+          const { stdout } = await execa(
+            "tesseract",
+            [frame.file, "stdout", "-l", config.ocrLangs, "--psm", "6"],
+            { timeout: config.ocrTimeoutMs }
+          );
           return {
             frame: path.basename(frame.file),
             timestamp: frame.timestamp,
