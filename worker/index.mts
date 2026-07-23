@@ -71,6 +71,28 @@ async function downloadTo(url: string, dest: string): Promise<void> {
   await streamPipeline(Readable.fromWeb(res.body as never), fsSync.createWriteStream(dest));
 }
 
+const STALE_PROCESSING_MIN = Number(process.env.STALE_PROCESSING_MIN ?? 2);
+
+/**
+ * Re-queue jobs stuck in "processing" (worker killed mid-job: runner cancelled,
+ * workflow timeout, crash). Safe under the single-worker invariant enforced by
+ * the workflow concurrency group — raise STALE_PROCESSING_MIN if several
+ * workers ever run in parallel.
+ */
+async function requeueStaleJobs(): Promise<void> {
+  const cutoff = new Date(Date.now() - STALE_PROCESSING_MIN * 60_000);
+  const res = await prisma.job.updateMany({
+    where: { status: "processing", updatedAt: { lt: cutoff } },
+    data: {
+      status: "queued",
+      stage: "queued",
+      progress: 0,
+      message: "Reprise après interruption du worker",
+    },
+  });
+  if (res.count > 0) console.log(`[worker] requeued ${res.count} interrupted job(s)`);
+}
+
 /** Refund the whole reservation when a job fails. */
 async function refundReservation(job: Job): Promise<void> {
   if (job.creditsReserved > 0) {
@@ -239,6 +261,7 @@ async function main() {
     `[worker] started in ${DRAIN ? "drain" : "poll"} mode — polling every ${POLL_MS}ms (tmp: ${TMP_BASE})`
   );
   console.log(`[worker] db target: ${describeDb()}`);
+  await requeueStaleJobs().catch((err) => console.error("[worker] requeue failed:", err));
 
   let running = true;
   const stop = () => {
