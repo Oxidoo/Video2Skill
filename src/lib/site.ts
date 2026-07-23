@@ -3,7 +3,9 @@
 
 export const SITE = {
   name: "Video2Skill",
-  url: (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.video2skill.app").replace(/\/$/, ""),
+  // Canonical host, hardcoded so a stale Vercel env var can't override it.
+  // Change here if the domain ever changes.
+  url: "https://www.video2skill.app",
   tagline: "Convertis une vidéo de formation en skill.md pour IA",
   description:
     "Video to Skill transforme une vidéo de formation en base de connaissances skill.md fiable pour une IA : transcription horodatée, OCR et analyse visuelle des écrans. Rapide, simple, paiement à l'usage.",

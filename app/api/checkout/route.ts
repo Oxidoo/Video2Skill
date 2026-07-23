@@ -25,7 +25,9 @@ export async function POST(req: NextRequest) {
     select: { email: true },
   });
 
-  const origin = process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
+  // Redirect back to the domain the user is actually on (keeps them on-domain
+  // after payment, regardless of any stale env var).
+  const origin = new URL(req.url).origin;
 
   const checkout = await stripe().checkout.sessions.create({
     mode: "payment",
