@@ -72,7 +72,7 @@ const jsonLd = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr">
+    <html lang="en">
       <body className="min-h-screen antialiased">
         <script
           type="application/ld+json"

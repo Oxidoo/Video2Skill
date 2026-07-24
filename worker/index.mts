@@ -31,6 +31,8 @@ import { putArtifact } from "../src/lib/blob";
 import { recordCredit } from "../src/lib/credits";
 import { creditCost } from "../src/lib/billing";
 import { JobOptions } from "../src/lib/schemas";
+import { isYoutubeUrl, normalizeYoutubeUrl } from "../src/lib/youtube";
+import { execa } from "execa";
 import type { Job } from "@prisma/client";
 
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 5000);
@@ -52,7 +54,7 @@ function sleep(ms: number) {
 async function claimNextJob(): Promise<string | null> {
   const rows = await prisma.$queryRaw<{ id: string }[]>`
     UPDATE "Job"
-       SET status = 'processing', stage = 'probing', message = 'Démarrage du traitement', "updatedAt" = now()
+       SET status = 'processing', stage = 'probing', message = 'Starting processing', "updatedAt" = now()
      WHERE id = (
        SELECT id FROM "Job"
         WHERE status = 'queued'
@@ -65,10 +67,30 @@ async function claimNextJob(): Promise<string | null> {
   return rows[0]?.id ?? null;
 }
 
-async function downloadTo(url: string, dest: string): Promise<void> {
+/**
+ * Download the source to a local file and return its path. Handles both blob
+ * URLs (direct fetch) and YouTube links (via yt-dlp).
+ */
+async function downloadSource(url: string, destBase: string): Promise<string> {
+  if (isYoutubeUrl(url)) {
+    const canonical = normalizeYoutubeUrl(url) ?? url;
+    await execa(
+      "yt-dlp",
+      [
+        "-f", "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b",
+        "--no-playlist",
+        "--merge-output-format", "mp4",
+        "-o", `${destBase}.%(ext)s`,
+        canonical,
+      ],
+      { timeout: 20 * 60_000 }
+    );
+    return `${destBase}.mp4`;
+  }
   const res = await fetch(url);
-  if (!res.ok || !res.body) throw new Error(`Téléchargement de la vidéo échoué (${res.status})`);
-  await streamPipeline(Readable.fromWeb(res.body as never), fsSync.createWriteStream(dest));
+  if (!res.ok || !res.body) throw new Error(`Video download failed (${res.status})`);
+  await streamPipeline(Readable.fromWeb(res.body as never), fsSync.createWriteStream(destBase));
+  return destBase;
 }
 
 const STALE_PROCESSING_MIN = Number(process.env.STALE_PROCESSING_MIN ?? 2);
@@ -87,7 +109,7 @@ async function requeueStaleJobs(): Promise<void> {
       status: "queued",
       stage: "queued",
       progress: 0,
-      message: "Reprise après interruption du worker",
+      message: "Resuming after worker interruption",
     },
   });
   if (res.count > 0) console.log(`[worker] requeued ${res.count} interrupted job(s)`);
@@ -100,15 +122,19 @@ async function refundReservation(job: Job): Promise<void> {
       userId: job.userId,
       amount: job.creditsReserved,
       type: "refund",
-      description: `Remboursement — ${job.fileName}`,
+      description: `Refund — ${job.fileName}`,
       jobId: job.id,
     });
   }
 }
 
 /** Reconcile reserved vs. actual cost on success; returns the amount charged. */
-async function settleUsage(job: Job, actualDurationSec: number): Promise<number> {
-  const actual = creditCost(actualDurationSec);
+async function settleUsage(
+  job: Job,
+  actualDurationSec: number,
+  outputType: "skill" | "transcript"
+): Promise<number> {
+  const actual = creditCost(actualDurationSec, outputType);
   const adjustment = job.creditsReserved - actual; // >0 give back, <0 charge extra
   if (adjustment !== 0) {
     await prisma.$transaction(async (tx) => {
@@ -125,7 +151,7 @@ async function settleUsage(job: Job, actualDurationSec: number): Promise<number>
           userId: job.userId,
           amount,
           type: "adjustment",
-          description: `Ajustement crédits — ${job.fileName}`,
+          description: `Credit adjustment — ${job.fileName}`,
           jobId: job.id,
         });
       }
@@ -145,26 +171,29 @@ async function processJob(jobId: string): Promise<void> {
   let lastWrite = 0;
 
   try {
-    if (!job.videoUrl) throw new Error("Aucune vidéo associée à ce job.");
+    if (!job.videoUrl) throw new Error("No video associated with this job.");
     await fs.mkdir(workDir, { recursive: true });
 
+    const options = JobOptions.parse(job.options);
     await prisma.job.update({
       where: { id: jobId },
-      data: { stage: "uploaded", progress: 3, message: "Téléchargement de la vidéo" },
+      data: {
+        stage: "uploaded",
+        progress: 3,
+        message: isYoutubeUrl(job.videoUrl) ? "Downloading from YouTube" : "Downloading video",
+      },
     });
-    await downloadTo(job.videoUrl, videoPath);
-
-    const options = JobOptions.parse(job.options);
+    const localVideo = await downloadSource(job.videoUrl, videoPath);
 
     const result = await processVideo({
-      videoPath,
+      videoPath: localVideo,
       workDir,
       fileName: job.fileName,
       options,
       // Guard against under-reported client durations: refuse to burn expensive
       // AI work the user cannot pay for (only the cheap probe has run so far).
       onProbe: async (meta) => {
-        const actual = creditCost(meta.durationSec);
+        const actual = creditCost(meta.durationSec, options.outputType);
         const u = await prisma.user.findUnique({
           where: { id: job.userId },
           select: { credits: true },
@@ -172,7 +201,7 @@ async function processJob(jobId: string): Promise<void> {
         const affordable = job.creditsReserved + (u?.credits ?? 0);
         if (actual > affordable) {
           throw new Error(
-            `Durée réelle (${Math.round(meta.durationSec)}s → ${actual} crédits) supérieure au solde disponible (${affordable} crédits).`
+            `Real duration (${Math.round(meta.durationSec)}s → ${actual} credits) exceeds your available balance (${affordable} credits).`
           );
         }
       },
@@ -192,14 +221,19 @@ async function processJob(jobId: string): Promise<void> {
       },
     });
 
+    const isTranscript = options.outputType === "transcript";
     const prefix = `jobs/${jobId}`;
-    const [skill, report, timeline] = await Promise.all([
-      putArtifact(`${prefix}/skill.md`, result.skillMd, "text/markdown; charset=utf-8"),
+    const [primary, report, timeline] = await Promise.all([
+      putArtifact(
+        `${prefix}/${isTranscript ? "transcript.txt" : "skill.md"}`,
+        result.output,
+        isTranscript ? "text/plain; charset=utf-8" : "text/markdown; charset=utf-8"
+      ),
       putArtifact(`${prefix}/report.json`, result.reportJson, "application/json"),
       putArtifact(`${prefix}/timeline.json`, result.timelineJson, "application/json"),
     ]);
 
-    const charged = await settleUsage(job, result.durationSec);
+    const charged = await settleUsage(job, result.durationSec, options.outputType);
 
     await prisma.job.update({
       where: { id: jobId },
@@ -207,9 +241,9 @@ async function processJob(jobId: string): Promise<void> {
         status: "done",
         stage: "done",
         progress: 100,
-        message: "skill.md prêt",
+        message: isTranscript ? "Transcript ready" : "skill.md ready",
         error: null,
-        skillUrl: skill.url,
+        skillUrl: primary.url,
         reportUrl: report.url,
         timelineUrl: timeline.url,
         qualityScore: result.report.score,
@@ -228,7 +262,7 @@ async function processJob(jobId: string): Promise<void> {
         status: "failed",
         stage: "failed",
         error: message,
-        message: "Échec du traitement (crédits remboursés)",
+        message: "Processing failed (credits refunded)",
         creditsCharged: 0,
       },
     });
@@ -251,7 +285,7 @@ function describeDb(): string {
     const u = new URL(process.env.DATABASE_URL ?? "");
     return `${u.hostname}:${u.port}${u.pathname}`;
   } catch {
-    return "(DATABASE_URL invalide ou absente)";
+    return "(DATABASE_URL missing or invalid)";
   }
 }
 

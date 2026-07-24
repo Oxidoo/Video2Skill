@@ -62,11 +62,13 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Installer FFmpeg + Tesseract
+      - name: Install FFmpeg, Tesseract, yt-dlp
         if: steps.check.outputs.ok == 'true'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg tesseract-ocr tesseract-ocr-fra tesseract-ocr-eng
+          sudo curl -sL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o /usr/local/bin/yt-dlp
+          sudo chmod a+rx /usr/local/bin/yt-dlp
 
       - name: Installer les dépendances
         if: steps.check.outputs.ok == 'true'

@@ -1,49 +1,47 @@
 // Central site metadata reused across <head>, sitemap, robots and JSON-LD.
-// Set NEXT_PUBLIC_APP_URL to your final domain to update canonical URLs everywhere.
 
 export const SITE = {
   name: "Video2Skill",
   // Canonical host, hardcoded so a stale Vercel env var can't override it.
-  // Change here if the domain ever changes.
   url: "https://www.video2skill.app",
-  tagline: "L'IA qui comprend vraiment vos vidéos",
+  tagline: "The AI that truly understands your videos",
   description:
-    "Video2Skill transforme n'importe quelle vidéo en une base de connaissances skill.md que votre IA peut lire, citer et exploiter : transcription horodatée, texte à l'écran (OCR) et analyse visuelle. Le convertisseur vidéo → IA.",
+    "Video2Skill turns any video into a skill.md knowledge base your AI can read, cite and use: timestamped transcription, on-screen text (OCR) and visual analysis. The video-to-AI converter.",
   keywords: [
     "video to skill",
     "video2skill",
     "skill.md",
-    "comprendre une vidéo avec une IA",
-    "convertir une vidéo pour une IA",
-    "vidéo vers texte pour IA",
-    "transcription vidéo horodatée",
-    "OCR vidéo",
-    "analyser une vidéo avec l'IA",
-    "convertisseur vidéo IA",
+    "video to AI",
+    "make an AI understand a video",
+    "convert video for AI",
+    "video to text for AI",
+    "timestamped transcription",
+    "video OCR",
+    "analyze video with AI",
   ],
-  locale: "fr_FR",
+  locale: "en_US",
   twitter: "@video2skill",
 } as const;
 
 export const FAQ: { q: string; a: string }[] = [
   {
-    q: "Qu'est-ce que Video2Skill ?",
-    a: "Video2Skill est un outil en ligne qui permet à une IA de comprendre vraiment une vidéo. Il convertit n'importe quelle vidéo en un fichier skill.md structuré et fiable, exploitable par une IA — en combinant transcription horodatée, OCR du texte à l'écran et analyse visuelle.",
+    q: "What is Video2Skill?",
+    a: "Video2Skill is an online tool that lets an AI truly understand a video. It converts any video into a structured, reliable skill.md file an AI can use — combining timestamped transcription, on-screen text (OCR) and visual analysis.",
   },
   {
-    q: "Comment convertir une vidéo pour une IA ?",
-    a: "Connecte-toi avec Google, dépose ta vidéo (ou colle un lien), puis lance la conversion. L'outil génère automatiquement un skill.md avec le contenu, les timestamps et les repères visuels, que tu télécharges et donnes à ton IA.",
+    q: "How do I convert a video for an AI?",
+    a: "Sign in with Google, drop your video (or paste a link), then start. The tool automatically generates a skill.md with the content, timestamps and visual cues, which you download and give to your AI.",
   },
   {
-    q: "Combien ça coûte ?",
-    a: "Le paiement se fait à l'usage, en crédits : 1 crédit par minute de vidéo. Des crédits sont offerts à l'inscription pour tester, sans abonnement.",
+    q: "How much does it cost?",
+    a: "Pay as you go, in credits: 1 credit per minute of video for a full skill.md, and even less for a transcript-only export. Free credits on sign-up, no subscription.",
   },
   {
-    q: "Quels formats de vidéo sont acceptés ?",
-    a: "Les formats courants sont pris en charge : MP4, MOV, WEBM et MKV, y compris les fichiers volumineux grâce à l'upload par morceaux.",
+    q: "Which video formats are supported?",
+    a: "Common formats are supported: MP4, MOV, WEBM and MKV, including large files thanks to chunked upload. You can also paste a public YouTube link.",
   },
   {
-    q: "Le skill.md est-il fiable ?",
-    a: "Oui : aucune étape d'interface n'est inventée à partir du seul audio. Chaque étape est ancrée dans la transcription, l'OCR ou l'analyse visuelle, et un contrôle qualité signale les zones incertaines.",
+    q: "Is the skill.md reliable?",
+    a: "Yes: no UI step is invented from audio alone. Every step is grounded in the transcript, OCR or visual analysis, and a quality check flags uncertain areas.",
   },
 ];

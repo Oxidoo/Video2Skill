@@ -9,9 +9,9 @@ import {
 import { BuyButton } from "@/components/BuyButton";
 
 export const metadata: Metadata = {
-  title: "Tarifs",
+  title: "Pricing",
   description:
-    "Tarifs Video2Skill : paiement à l'usage en crédits, 1 crédit par minute de vidéo. Crédits offerts à l'inscription, sans abonnement.",
+    "Video2Skill pricing: pay as you go in credits, 1 credit per minute of video, cheaper for transcript-only. Free credits on sign-up, no subscription.",
   alternates: { canonical: "/pricing" },
 };
 
@@ -19,11 +19,11 @@ export default function PricingPage() {
   return (
     <main className="mx-auto max-w-5xl px-6 py-16">
       <header className="text-center">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Tarifs</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Pricing</h1>
         <p className="mx-auto mt-3 max-w-xl text-gray-600">
-          Paiement à l'usage, sans abonnement. {CREDITS_PER_MINUTE} crédit
-          {CREDITS_PER_MINUTE > 1 ? "s" : ""} par minute de vidéo (facturée à la minute entamée).{" "}
-          {SIGNUP_BONUS_CREDITS} crédits offerts à l'inscription.
+          Pay as you go, no subscription. {CREDITS_PER_MINUTE} credit
+          {CREDITS_PER_MINUTE > 1 ? "s" : ""} per minute of video (billed per started minute),
+          cheaper for transcript-only. {SIGNUP_BONUS_CREDITS} free credits on sign-up.
         </p>
       </header>
 
@@ -37,19 +37,19 @@ export default function PricingPage() {
           >
             {pack.highlight && (
               <span className="mb-3 inline-block w-fit rounded-full bg-gray-900 px-3 py-1 text-xs font-semibold text-white">
-                Populaire
+                Popular
               </span>
             )}
             <h3 className="text-lg font-semibold text-gray-900">{pack.name}</h3>
             <p className="mt-3 text-3xl font-bold text-gray-900">{formatPrice(pack)}</p>
             <p className="mt-1 text-sm text-gray-500">
-              {pack.credits} crédits · ≈ {Math.floor(pack.credits / CREDITS_PER_MINUTE)} min de vidéo
+              {pack.credits} credits · ≈ {Math.floor(pack.credits / CREDITS_PER_MINUTE)} min of video
             </p>
             <div className="mt-6">
               <BuyButton
                 packId={pack.id}
                 highlight={pack.highlight}
-                label={`Acheter ${formatPrice(pack)}`}
+                label={`Buy ${formatPrice(pack)}`}
               />
             </div>
           </div>
@@ -57,9 +57,9 @@ export default function PricingPage() {
       </div>
 
       <p className="mt-10 text-center text-sm text-gray-500">
-        Déjà un compte ?{" "}
+        Already have an account?{" "}
         <Link href="/dashboard" className="font-medium text-gray-900 underline">
-          Aller au studio
+          Go to the studio
         </Link>
       </p>
     </main>

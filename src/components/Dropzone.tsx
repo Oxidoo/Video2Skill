@@ -47,9 +47,9 @@ export function Dropzone({
       ) : (
         <div>
           <p className="font-medium text-gray-700">
-            Dépose ta vidéo ici, ou clique pour parcourir
+            Drop your video here, or click to browse
           </p>
-          <p className="mt-1 text-sm text-gray-500">Formats acceptés : mp4, mov, webm, mkv</p>
+          <p className="mt-1 text-sm text-gray-500">Supported formats: mp4, mov, webm, mkv</p>
         </div>
       )}
     </div>

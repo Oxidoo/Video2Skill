@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const job = await prisma.job.findFirst({
     where: { id, userId },
-    select: { status: true, skillUrl: true, reportUrl: true },
+    select: { status: true, skillUrl: true, reportUrl: true, options: true },
   });
   if (!job) return NextResponse.json({ error: "Job not found" }, { status: 404 });
   if (job.status !== "done") {
@@ -30,10 +30,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!upstream.ok) return NextResponse.json({ error: "File not available" }, { status: 502 });
   const content = await upstream.arrayBuffer();
 
+  const outputType = (job.options as { outputType?: string } | null)?.outputType ?? "skill";
+  const isTranscript = outputType === "transcript";
+  const primaryName = isTranscript ? "transcript.txt" : "skill.md";
+  const primaryType = isTranscript ? "text/plain; charset=utf-8" : "text/markdown; charset=utf-8";
+
   return new NextResponse(content, {
     headers: {
-      "Content-Type": isReport ? "application/json" : "text/markdown; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${isReport ? "report.json" : "skill.md"}"`,
+      "Content-Type": isReport ? "application/json" : primaryType,
+      "Content-Disposition": `attachment; filename="${isReport ? "report.json" : primaryName}"`,
     },
   });
 }

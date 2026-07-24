@@ -11,9 +11,9 @@ export default async function DashboardPage() {
   if (!session?.user) {
     return (
       <main className="mx-auto max-w-md px-6 py-24 text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Connecte-toi pour commencer</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Sign in to get started</h1>
         <p className="mt-2 text-gray-500">
-          Accède au studio et transforme tes vidéos de formation en skill.md.
+          Access the studio and turn your videos into a skill.md your AI can use.
         </p>
         <div className="mt-6 flex justify-center">
           <SignInButton />
@@ -27,7 +27,7 @@ export default async function DashboardPage() {
       <header>
         <h1 className="text-2xl font-bold text-gray-900">Studio</h1>
         <p className="mt-1 text-gray-500">
-          Dépose une formation vidéo et génère un skill.md exploitable par une IA.
+          Drop a video or paste a link — turn it into a skill.md your AI can use.
         </p>
       </header>
       <Studio />

@@ -36,11 +36,11 @@ export function BuyButton({
       }
       setError(
         res.status === 503
-          ? "Le paiement n'est pas encore configuré (clés Stripe manquantes)."
-          : data.error ?? "Erreur"
+          ? "Payments aren't configured yet (missing Stripe keys)."
+          : data.error ?? "Error"
       );
     } catch {
-      setError("Erreur réseau");
+      setError("Network error");
     } finally {
       setLoading(false);
     }
@@ -57,7 +57,7 @@ export function BuyButton({
             : "border border-gray-300 bg-white text-gray-900 hover:bg-gray-50"
         }`}
       >
-        {loading ? "Redirection…" : label}
+        {loading ? "Redirecting…" : label}
       </button>
       {error && <p className="mt-2 text-center text-xs text-red-600">{error}</p>}
     </div>

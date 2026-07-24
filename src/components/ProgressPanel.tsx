@@ -4,16 +4,16 @@ import type { JobStatus } from "@/lib/types";
 import { Spinner } from "./Spinner";
 
 const STEPS: { key: string; label: string; stages: string[] }[] = [
-  { key: "queue", label: "File d'attente", stages: ["queued", "created", "uploading", "uploaded"] },
-  { key: "probe", label: "Analyse vidéo", stages: ["probing"] },
-  { key: "audio", label: "Extraction audio", stages: ["extracting_audio"] },
+  { key: "queue", label: "Queue", stages: ["queued", "created", "uploading", "uploaded"] },
+  { key: "probe", label: "Video analysis", stages: ["probing"] },
+  { key: "audio", label: "Audio extraction", stages: ["extracting_audio"] },
   { key: "transcribe", label: "Transcription", stages: ["transcribing"] },
-  { key: "frames", label: "Extraction captures", stages: ["extracting_frames", "deduplicating"] },
+  { key: "frames", label: "Frame extraction", stages: ["extracting_frames", "deduplicating"] },
   { key: "ocr", label: "OCR", stages: ["ocr"] },
-  { key: "vision", label: "Analyse visuelle", stages: ["vision"] },
-  { key: "merge", label: "Fusion timeline", stages: ["merging"] },
-  { key: "generate", label: "Génération skill.md", stages: ["generating"] },
-  { key: "qa", label: "Contrôle qualité", stages: ["quality_check"] },
+  { key: "vision", label: "Visual analysis", stages: ["vision"] },
+  { key: "merge", label: "Timeline merge", stages: ["merging"] },
+  { key: "generate", label: "Output generation", stages: ["generating"] },
+  { key: "qa", label: "Quality check", stages: ["quality_check"] },
 ];
 
 export function ProgressPanel({ job }: { job: JobStatus }) {
@@ -68,7 +68,7 @@ export function ProgressPanel({ job }: { job: JobStatus }) {
       </ol>
       {failed && (
         <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-          Erreur : {job.error}
+          Error: {job.error}
         </p>
       )}
     </div>

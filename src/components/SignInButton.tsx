@@ -19,7 +19,7 @@ export function SignInButton({
         "inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 font-medium text-white transition-colors hover:bg-gray-700"
       }
     >
-      {children ?? "Se connecter avec Google"}
+      {children ?? "Sign in with Google"}
     </button>
   );
 }

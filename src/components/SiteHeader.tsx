@@ -17,7 +17,7 @@ export function SiteHeader() {
 
         <nav className="flex items-center gap-4 text-sm">
           <Link href="/pricing" className="text-gray-600 hover:text-gray-900">
-            Tarifs
+            Pricing
           </Link>
 
           {authed ? (
@@ -26,7 +26,7 @@ export function SiteHeader() {
                 Dashboard
               </Link>
               <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                {session.user.credits} crédits
+                {session.user.credits} credits
               </span>
               {session.user.image && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -41,7 +41,7 @@ export function SiteHeader() {
                 onClick={() => signOut({ callbackUrl: "/" })}
                 className="text-gray-500 hover:text-gray-900"
               >
-                Déconnexion
+                Sign out
               </button>
             </>
           ) : (
@@ -49,7 +49,7 @@ export function SiteHeader() {
               onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
               className="rounded-lg bg-gray-900 px-4 py-1.5 font-medium text-white hover:bg-gray-700"
             >
-              Se connecter
+              Sign in
             </button>
           )}
         </nav>

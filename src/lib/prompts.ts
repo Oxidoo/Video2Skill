@@ -34,29 +34,29 @@ export const skillPrompt = (args: {
   language: string;
   timelineJson: string;
   includeTimestamps: boolean;
-}) => `You are creating a reliable AI skill from a software training video.
+}) => `You are creating a reliable AI skill from a video.
 
 You receive a merged timeline combining: timestamped transcript, OCR from screenshots, and visual analysis of screenshots.
 
 Create a \`skill.md\` knowledge base with this exact structure:
 
-# Skill — [Training name inferred from content]
-## 1. Objectif du skill
-## 2. Source vidéo
-(durée: ${Math.round(args.durationSec)}s, fichier: ${args.fileName}, langue: ${args.language}, date de génération: ${new Date().toISOString().slice(0, 10)}, niveau de confiance global, limites connues)
-## 3. Règles d'utilisation par l'IA
-- Ne pas inventer les étapes absentes de la vidéo.
-- Toujours distinguer ce qui est vu à l'écran de ce qui est dit oralement.
-- Si une interface n'est pas lisible, signaler l'incertitude.
-- Quand possible, citer le timestamp source.
-- Répondre avec des étapes concrètes.
-## 4. Concepts clés de la formation
-## 5. Procédures opérationnelles
-(each procedure: Objectif, Contexte logiciel, Timestamp source, Pré-requis, #### Étapes numérotées, #### Repères visuels, #### Résultat attendu, #### Erreurs fréquentes, #### Niveau de confiance Élevé/Moyen/Faible)
-## 6. Glossaire
+# Skill — [Skill name inferred from content]
+## 1. Purpose
+## 2. Video source
+(duration: ${Math.round(args.durationSec)}s, file: ${args.fileName}, language: ${args.language}, generated: ${new Date().toISOString().slice(0, 10)}, overall confidence, known limitations)
+## 3. Rules for AI usage
+- Do not invent steps that are absent from the video.
+- Always distinguish what is seen on screen from what is said aloud.
+- If an interface isn't legible, flag the uncertainty.
+- Whenever possible, cite the source timestamp.
+- Answer with concrete steps.
+## 4. Key concepts
+## 5. Operational procedures
+(each procedure: Goal, Software context, Source timestamp, Prerequisites, #### Numbered steps, #### Visual cues, #### Expected result, #### Common mistakes, #### Confidence level High/Medium/Low)
+## 6. Glossary
 ## 7. FAQ
-## 8. Cas pratiques
-## 9. Zones incertaines à vérifier manuellement
+## 8. Worked examples
+## 9. Uncertain areas to verify manually
 
 Rules:
 - Do not write a generic summary. Create actionable procedures.
@@ -65,7 +65,7 @@ Rules:
 - Include visual landmarks, uncertainties, common mistakes and expected outcomes.
 - Do not invent software options that are not grounded in the timeline.
 - Never generate UI-dependent procedures from transcript alone: if no frame/OCR supports a UI step, mark it uncertain.
-- Write the skill in the same language as the training (detected: ${args.language}).
+- Write the skill in the same language as the source video (detected: ${args.language}).
 - Output valid Markdown only, no code fence around the whole document.
 
 TIMELINE:

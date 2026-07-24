@@ -24,6 +24,9 @@ export const JobOptions = z.object({
   includeRawOcr: z.boolean().default(false),
   includeTimestamps: z.boolean().default(true),
   language: z.enum(["fr", "en", "auto"]).default("auto"),
+  // "skill" = full skill.md pipeline; "transcript" = timestamped transcript only
+  // (skips frames/OCR/vision/synthesis, much cheaper).
+  outputType: z.enum(["skill", "transcript"]).default("skill"),
 });
 export type JobOptions = z.infer<typeof JobOptions>;
 

@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
         price_data: {
           currency: pack.currency,
           unit_amount: pack.priceCents,
-          product_data: { name: `Video2Skill — ${pack.credits} crédits (${pack.name})` },
+          product_data: { name: `Video2Skill — ${pack.credits} credits (${pack.name})` },
         },
       },
     ],

@@ -22,10 +22,10 @@ export default function OpengraphImage() {
       >
         <div style={{ fontSize: 40, fontWeight: 700, color: "#2563eb" }}>Video2Skill</div>
         <div style={{ fontSize: 66, fontWeight: 800, lineHeight: 1.1, marginTop: 24 }}>
-          Enfin, une IA qui comprend vraiment vos vidéos
+          Finally, an AI that truly understands your videos
         </div>
         <div style={{ fontSize: 30, color: "#4b5563", marginTop: 28 }}>
-          Transcription horodatée · OCR · analyse visuelle · skill.md
+          Timestamped transcription · OCR · visual analysis · skill.md
         </div>
       </div>
     ),

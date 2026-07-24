@@ -6,10 +6,10 @@ import { ProgressPanel } from "./ProgressPanel";
 import { DownloadButton } from "./DownloadButton";
 
 const STATUS_LABEL: Record<string, { label: string; className: string }> = {
-  queued: { label: "En file", className: "bg-gray-100 text-gray-600" },
-  processing: { label: "En cours", className: "bg-blue-100 text-blue-700" },
-  done: { label: "Terminé", className: "bg-green-100 text-green-700" },
-  failed: { label: "Échec", className: "bg-red-100 text-red-700" },
+  queued: { label: "Queued", className: "bg-gray-100 text-gray-600" },
+  processing: { label: "Processing", className: "bg-blue-100 text-blue-700" },
+  done: { label: "Done", className: "bg-green-100 text-green-700" },
+  failed: { label: "Failed", className: "bg-red-100 text-red-700" },
 };
 
 function isActive(status: string) {
@@ -97,7 +97,7 @@ export function JobHistory() {
   return (
     <section>
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-        Historique
+        History
       </h2>
       <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
         {jobs.map((j) => {
@@ -121,8 +121,8 @@ export function JobHistory() {
                   <div className="min-w-0">
                     <p className="truncate font-medium text-gray-900">{j.fileName}</p>
                     <p className="text-xs text-gray-400">
-                      {new Date(j.createdAt).toLocaleString("fr-FR")}
-                      {j.creditsCharged != null && ` · ${j.creditsCharged} crédits`}
+                      {new Date(j.createdAt).toLocaleString("en-US")}
+                      {j.creditsCharged != null && ` · ${j.creditsCharged} credits`}
                     </p>
                   </div>
                 </div>

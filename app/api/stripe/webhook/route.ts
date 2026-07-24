@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
           userId,
           amount: credits,
           type: "purchase",
-          description: `Achat de ${credits} crédits`,
+          description: `Purchase of ${credits} credits`,
           stripeSessionId: session.id,
         });
       }
