@@ -1,6 +1,7 @@
 "use client";
 
 import type { JobStatus } from "@/lib/types";
+import { Spinner } from "./Spinner";
 
 const STEPS: { key: string; label: string; stages: string[] }[] = [
   { key: "queue", label: "File d'attente", stages: ["queued", "created", "uploading", "uploaded"] },
@@ -45,7 +46,7 @@ export function ProgressPanel({ job }: { job: JobStatus }) {
                       : "bg-gray-100 text-gray-400"
                 }`}
               >
-                {done ? "✓" : i + 1}
+                {done ? "✓" : active ? <Spinner size={12} /> : i + 1}
               </span>
               <span
                 className={

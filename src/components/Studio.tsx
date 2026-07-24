@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Dropzone } from "./Dropzone";
 import { ProgressPanel } from "./ProgressPanel";
 import { DownloadButton } from "./DownloadButton";
+import { Spinner } from "./Spinner";
 import type { JobStatus } from "@/lib/types";
 
 const CREDITS_PER_MINUTE = Number(process.env.NEXT_PUBLIC_CREDITS_PER_MINUTE ?? 1);
@@ -261,7 +262,10 @@ export function Studio() {
 
       {phase === "uploading" && (
         <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <p className="mb-2 text-sm font-medium text-gray-700">Upload… {uploadPct}%</p>
+          <p className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+            <Spinner size={14} className="text-blue-600" />
+            Upload… {uploadPct}%
+          </p>
           <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
             <div
               className="h-full rounded-full bg-blue-600 transition-all"

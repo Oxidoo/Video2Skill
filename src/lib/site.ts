@@ -6,20 +6,20 @@ export const SITE = {
   // Canonical host, hardcoded so a stale Vercel env var can't override it.
   // Change here if the domain ever changes.
   url: "https://www.video2skill.app",
-  tagline: "Convertis une vidéo de formation en skill.md pour IA",
+  tagline: "L'IA qui comprend vraiment vos vidéos",
   description:
-    "Video to Skill transforme une vidéo de formation en base de connaissances skill.md fiable pour une IA : transcription horodatée, OCR et analyse visuelle des écrans. Rapide, simple, paiement à l'usage.",
+    "Video2Skill transforme n'importe quelle vidéo en une base de connaissances skill.md que votre IA peut lire, citer et exploiter : transcription horodatée, texte à l'écran (OCR) et analyse visuelle. Le convertisseur vidéo → IA.",
   keywords: [
     "video to skill",
     "video2skill",
     "skill.md",
-    "vidéo en skill",
-    "convertir une vidéo en documentation",
-    "formation vidéo en IA",
+    "comprendre une vidéo avec une IA",
+    "convertir une vidéo pour une IA",
+    "vidéo vers texte pour IA",
     "transcription vidéo horodatée",
     "OCR vidéo",
-    "documentation IA depuis vidéo",
-    "générer skill.md",
+    "analyser une vidéo avec l'IA",
+    "convertisseur vidéo IA",
   ],
   locale: "fr_FR",
   twitter: "@video2skill",
@@ -27,12 +27,12 @@ export const SITE = {
 
 export const FAQ: { q: string; a: string }[] = [
   {
-    q: "Qu'est-ce que Video to Skill ?",
-    a: "Video2Skill est un outil en ligne qui convertit une vidéo de formation (tutoriel, démo logicielle) en un fichier skill.md structuré et fiable, exploitable par une IA. Il combine transcription horodatée, OCR et analyse visuelle des écrans.",
+    q: "Qu'est-ce que Video2Skill ?",
+    a: "Video2Skill est un outil en ligne qui permet à une IA de comprendre vraiment une vidéo. Il convertit n'importe quelle vidéo en un fichier skill.md structuré et fiable, exploitable par une IA — en combinant transcription horodatée, OCR du texte à l'écran et analyse visuelle.",
   },
   {
-    q: "Comment convertir une vidéo en skill.md ?",
-    a: "Connecte-toi avec Google, dépose ta vidéo (mp4, mov, webm, mkv), puis clique sur « Créer skill.md ». Le traitement génère automatiquement les procédures, timestamps et repères visuels, puis tu télécharges le fichier.",
+    q: "Comment convertir une vidéo pour une IA ?",
+    a: "Connecte-toi avec Google, dépose ta vidéo (ou colle un lien), puis lance la conversion. L'outil génère automatiquement un skill.md avec le contenu, les timestamps et les repères visuels, que tu télécharges et donnes à ton IA.",
   },
   {
     q: "Combien ça coûte ?",

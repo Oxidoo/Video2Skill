@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
+import { Logo } from "./Logo";
 
 export function SiteHeader() {
   const { data: session, status } = useSession();
@@ -10,8 +11,8 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-10 border-b border-gray-200 bg-white/80 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
-        <Link href="/" className="text-lg font-bold tracking-tight text-gray-900">
-          Video2Skill
+        <Link href="/" aria-label="Video2Skill — accueil">
+          <Logo iconSize={26} />
         </Link>
 
         <nav className="flex items-center gap-4 text-sm">
