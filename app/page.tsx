@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { CREDITS_PER_MINUTE, SIGNUP_BONUS_CREDITS } from "@/lib/billing";
 import { FAQ } from "@/lib/site";
-import { Logo } from "@/components/Logo";
+import { CONTENT_PAGES } from "@/lib/content";
+import { SiteFooter } from "@/components/SiteFooter";
 
 const PROBLEMS = [
   ["Audio isn't enough", "A transcript alone misses everything on screen: buttons, menus, interfaces, on-screen text."],
@@ -165,12 +166,25 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="border-t border-gray-100">
-        <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 px-6 py-10 text-sm text-gray-500 sm:flex-row">
-          <Logo iconSize={22} wordmarkClassName="text-base font-bold tracking-tight text-gray-900" />
-          <p>The video-to-AI converter. skill.md from any video.</p>
+      {/* Use cases — internal links */}
+      <section className="mx-auto max-w-5xl px-6 pb-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">
+          Popular use cases
+        </h2>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {CONTENT_PAGES.map((p) => (
+            <Link
+              key={p.slug}
+              href={`/${p.slug}`}
+              className="rounded-full border border-gray-200 bg-white px-4 py-1.5 text-sm text-gray-700 transition hover:border-gray-300 hover:text-gray-900"
+            >
+              {p.h1.split(":")[0]}
+            </Link>
+          ))}
         </div>
-      </footer>
+      </section>
+
+      <SiteFooter />
     </main>
   );
 }
