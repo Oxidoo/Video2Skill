@@ -1,3 +1,4 @@
+import { cpus } from "os";
 import path from "path";
 
 export type Provider = "openai" | "anthropic";
@@ -91,11 +92,16 @@ export const config = {
   synthesisMaxTokens: num(process.env.SYNTHESIS_MAX_TOKENS, 16384),
 
   // --- OCR ------------------------------------------------------------------
-  ocrConcurrency: num(process.env.OCR_CONCURRENCY, 4),
+  // Each Tesseract process is pinned to one thread (see OCR_ENV in ocr.ts), so
+  // this is the real parallelism and it should track the core count.
+  ocrConcurrency: num(process.env.OCR_CONCURRENCY, Math.max(2, cpus().length)),
+  // Each extra language roughly doubles the run: a second model is loaded and
+  // both are searched. Drop to a single language when the videos are one.
   ocrLangs: process.env.OCR_LANGS ?? "fra+eng",
-  // Tesseract on full-resolution screenshots is slow and no more accurate on UI
-  // text than a normalized grayscale copy.
   ocrImageWidth: num(process.env.OCR_IMAGE_WIDTH, 1600),
+  // Page segmentation mode. 11 = sparse text, which is what a UI screenshot is;
+  // the previous 6 (one uniform block) missed isolated button labels entirely.
+  ocrPsm: process.env.OCR_PSM ?? "11",
 
   // --- Timeouts -------------------------------------------------------------
   apiTimeoutMs: num(process.env.API_TIMEOUT_MS, 90_000),

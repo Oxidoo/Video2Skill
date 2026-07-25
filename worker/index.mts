@@ -208,8 +208,12 @@ async function processJob(jobId: string): Promise<void> {
       },
       onProgress: async (u) => {
         const now = Date.now();
-        const structural = u.stage !== undefined || u.message !== undefined;
-        if (!structural && now - lastWrite < PROGRESS_MIN_INTERVAL_MS) return;
+        // Only a stage change forces a write. Per-frame updates carry a message
+        // ("OCR 3/8"), and treating any message as structural meant one database
+        // round-trip per frame — inside the concurrency slot, so the writes
+        // serialised the work they were reporting on. A superseded message is
+        // never lost for long: the next stage change flushes unconditionally.
+        if (u.stage === undefined && now - lastWrite < PROGRESS_MIN_INTERVAL_MS) return;
         lastWrite = now;
         await prisma.job.update({
           where: { id: jobId },
