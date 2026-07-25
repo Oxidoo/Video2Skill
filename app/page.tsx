@@ -11,7 +11,7 @@ const PROBLEMS = [
 ];
 
 const STEPS = [
-  ["Add your video", "Drop a file (mp4, mov, webm, mkv) or paste a link. Even large files work."],
+  ["Add your video", "Drop a file (mp4, mov, webm, mkv). Even large files work."],
   ["The AI analyzes everything", "Timestamped transcription, key frames, on-screen OCR and visual analysis of each moment."],
   ["Get your skill.md", "A structured file, with timestamps and visual cues, ready to be read by any AI."],
 ];

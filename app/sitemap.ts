@@ -48,12 +48,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     { url: `${SITE.url}/`, lastModified: now, changeFrequency: "weekly", priority: 1 },
-    {
-      url: `${SITE.url}/free-youtube-transcript`,
-      lastModified: now,
-      changeFrequency: "weekly",
-      priority: 0.9,
-    },
     { url: `${SITE.url}/pricing`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE.url}/skills`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     ...contentPages,

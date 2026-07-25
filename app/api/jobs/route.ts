@@ -5,7 +5,6 @@ import { recordCredit } from "@/lib/credits";
 import { creditCost } from "@/lib/billing";
 import { JobOptions } from "@/lib/schemas";
 import { triggerWorker } from "@/lib/worker-trigger";
-import { normalizeYoutubeUrl, fetchYoutubeInfo } from "@/lib/youtube";
 
 export const runtime = "nodejs";
 
@@ -24,39 +23,19 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const options = JobOptions.parse(body.options ?? {});
-    const youtube = typeof body.youtubeUrl === "string" ? body.youtubeUrl.trim() : "";
 
-    let videoUrl: string;
-    let fileName: string;
-    let durationSec: number;
-    let videoBytes: number | null = null;
-
-    if (youtube) {
-      const canonical = normalizeYoutubeUrl(youtube);
-      if (!canonical) {
-        return NextResponse.json({ error: "Invalid YouTube URL" }, { status: 400 });
-      }
-      const info = await fetchYoutubeInfo(canonical);
-      videoUrl = canonical;
-      fileName = (info.title ?? "YouTube video").slice(0, 200);
-      // Fall back to a 10-min estimate when the duration can't be read; the
-      // worker re-probes and settles the exact amount anyway.
-      durationSec = Math.min(info.durationSec > 0 ? info.durationSec : 600, 24 * 3600);
-    } else {
-      const blobUrl = String(body.blobUrl ?? "");
-      if (!/^https?:\/\//.test(blobUrl)) {
-        return NextResponse.json({ error: "Missing or invalid blobUrl" }, { status: 400 });
-      }
-      videoUrl = blobUrl;
-      fileName = String(body.fileName ?? "video.mp4").slice(0, 200);
-      // Client values are never trusted blindly: NaN/negative would corrupt the
-      // credit math (the worker re-checks the real duration anyway).
-      const rawDuration = Number(body.durationSec);
-      durationSec =
-        Number.isFinite(rawDuration) && rawDuration > 0 ? Math.min(rawDuration, 24 * 3600) : 0;
-      const rawBytes = Number(body.videoBytes);
-      videoBytes = Number.isFinite(rawBytes) && rawBytes > 0 ? Math.round(rawBytes) : null;
+    const videoUrl = String(body.blobUrl ?? "");
+    if (!/^https?:\/\//.test(videoUrl)) {
+      return NextResponse.json({ error: "Missing or invalid blobUrl" }, { status: 400 });
     }
+    const fileName = String(body.fileName ?? "video.mp4").slice(0, 200);
+    // Client values are never trusted blindly: NaN/negative would corrupt the
+    // credit math (the worker re-checks the real duration anyway).
+    const rawDuration = Number(body.durationSec);
+    const durationSec =
+      Number.isFinite(rawDuration) && rawDuration > 0 ? Math.min(rawDuration, 24 * 3600) : 0;
+    const rawBytes = Number(body.videoBytes);
+    const videoBytes = Number.isFinite(rawBytes) && rawBytes > 0 ? Math.round(rawBytes) : null;
 
     const cost = creditCost(durationSec, options.outputType);
 

@@ -16,12 +16,6 @@ export function SiteHeader() {
         </Link>
 
         <nav className="flex items-center gap-4 text-sm">
-          <Link
-            href="/free-youtube-transcript"
-            className="hidden text-gray-600 hover:text-gray-900 sm:inline"
-          >
-            Free transcript
-          </Link>
           <Link href="/skills" className="hidden text-gray-600 hover:text-gray-900 sm:inline">
             Skills
           </Link>

@@ -82,7 +82,9 @@ model User {
 // A single video -> skill.md processing job.
 model Job {
   id String @id @default(cuid())
-  // Null for anonymous free-tier jobs (no account, no credits).
+  // Nullable only because a removed anonymous free tier may have left rows
+  // behind. Every job created now has an owner; flipping this back to NOT NULL
+  // is the one migration here that can hard-fail, so it is left alone.
   userId   String?
   fileName String
 
@@ -109,14 +111,8 @@ model Job {
   meta         Json?
 
   // Credit accounting. Reserved on submit, settled on completion.
-  // Both stay at 0 for anonymous free-tier jobs, which never touch the ledger.
   creditsReserved Int  @default(0)
   creditsCharged  Int?
-
-  // Free-tier transcript jobs have no account behind them. anonKey is a salted
-  // hash of the client's address — never the address itself — used only to cap
-  // how many free jobs one client can start per day.
-  anonKey String?
 
   // Opt-in public publishing. Off by default: a job is private unless its owner
   // explicitly publishes it and confirms they may share the source material.
@@ -125,7 +121,6 @@ model Job {
   publicTitle    String?
   publicSummary  String?
   publishedAt    DateTime?
-  sourceUrl      String?   // public attribution link, when the source was a URL
 
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -134,7 +129,6 @@ model Job {
 
   @@index([status, createdAt])
   @@index([userId, createdAt])
-  @@index([anonKey, createdAt])
   @@index([isPublic, publishedAt])
 }
 

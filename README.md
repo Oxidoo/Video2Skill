@@ -47,7 +47,7 @@ Vercel. L'app est donc découpée en deux déployables (un seul dépôt) :
 ## Pipeline
 
 ```
-vidéo → [1 passe ffmpeg : audio segmenté + captures + scènes]
+vidéo (fichier uploadé) → [1 passe ffmpeg : audio segmenté + captures + scènes]
 → transcription horodatée (chunks en parallèle) → dédoublonnage perceptuel
 → OCR → analyse visuelle (+ 2ᵉ passe HD sur les images illisibles)
 → alignement audio+image → génération skill.md → audit qualité
@@ -84,53 +84,6 @@ Quelques propriétés qui pilotent le coût et la vitesse :
 - À la fin : le worker **solde** selon la durée réelle (remboursement du trop-perçu).
 - En cas d'échec : **remboursement intégral**.
 - Packs achetables définis dans `src/lib/billing.ts`.
-
-### Ingestion YouTube — limites connues
-
-Télécharger depuis YouTube sur une IP de datacenter n'est pas un problème résolu.
-Deux causes d'échec dominent, et le code traite les deux :
-
-- **Runtime JavaScript.** yt-dlp en a besoin (Deno par défaut) pour déchiffrer
-  les signatures YouTube. Sans lui il bascule silencieusement sur des clients
-  dégradés, qui sont ceux que YouTube bloque le plus. Deno est installé par le
-  workflow et par `Dockerfile.worker`.
-- **Contrôle anti-bot.** YouTube défie les plages d'adresses de datacenter —
-  tous les runners CI, la plupart des hébergeurs. Aucun réglage ne le contourne
-  de façon fiable. `src/lib/youtube-download.ts` fait tourner plusieurs clients
-  (`tv`, `tv_embedded`, mobiles) parce qu'ils ne sont pas filtrés pareil, ce qui
-  récupère une partie des vidéos, et accepte des cookies via `YOUTUBE_COOKIES`
-  quand l'opérateur en fournit.
-
-Deux réglages optionnels sont les seules réponses durables au contrôle anti-bot,
-par ordre d'efficacité : `YTDLP_PROXY` (sortie via une IP résidentielle) et
-`YOUTUBE_COOKIES` (compte jetable). `YTDLP_EXTRA_ARGS` permet d'ajouter
-n'importe quel flag yt-dlp sans toucher au code.
-
-Les jobs « transcription seule » ne téléchargent que l'audio : rien en aval ne
-regarde une image, donc tirer le flux vidéo consommait de la bande passante, du
-temps et — derrière un proxy facturé au volume — de l'argent pour des octets
-jetés. Les formats audio passent aussi par moins de chemins filtrés, donc ils
-échouent moins souvent. `probeVideo` accepte pour cela un fichier sans piste
-vidéo quand le job est en mode transcript.
-
-Quand tout échoue, l'utilisateur reçoit un message exploitable (« téléchargez la
-vidéo et envoyez le fichier ») et non la sortie brute de yt-dlp, et les crédits
-sont remboursés. **L'upload de fichier reste le chemin qui marche toujours** —
-c'est ce vers quoi le message d'erreur oriente.
-
-**Diagnostic.** `npm run yt:check -- "<url>"`, ou le workflow `yt-check` depuis
-l'onglet Actions, répond à la seule question utile quand un job YouTube échoue :
-qu'est-ce que *cet* hôte voit ? Il vérifie yt-dlp, Deno, ffmpeg, le proxy et les
-cookies, puis tente un téléchargement audio réel. Aucun job créé, aucun crédit
-consommé.
-
-### Transcription gratuite (acquisition)
-
-`/free-youtube-transcript` produit un transcript horodaté d'une vidéo YouTube
-publique **sans compte**. Le job est anonyme (`Job.userId` à `null`), ne touche
-jamais le grand livre de crédits et ne coûte que l'appel de transcription. Le
-plafond quotidien est compté par client via un hash salé de son adresse — jamais
-l'adresse elle-même (`src/lib/anon.ts`). Réglages : `FREE_TRANSCRIPT_*`.
 
 ### Pages skill.md publiques (SEO)
 
@@ -192,6 +145,8 @@ docker compose exec app npm run db:push   # une fois
    de passe de la base.
 2. **SQL Editor** → colle le contenu de [`prisma/bootstrap.sql`](prisma/bootstrap.sql)
    → **Run** : les tables sont créées (aucun outil local requis).
+   *Base déjà en service ?* Joue [`prisma/migrate.sql`](prisma/migrate.sql) à la
+   place : il est idempotent et purement additif.
 3. Bouton **Connect** → copie les deux chaînes :
    - pooler **transaction** (port 6543) → `DATABASE_URL` (ajoute
      `?pgbouncer=true&connection_limit=1`) ;

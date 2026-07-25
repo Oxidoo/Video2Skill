@@ -48,7 +48,7 @@ export const CONTENT_PAGES: ContentPage[] = [
       },
       {
         q: "Do I need to upload a file?",
-        a: "You can upload a video (MP4, MOV, WEBM, MKV) or simply paste a public YouTube link.",
+        a: "Upload a video file — MP4, MOV, WEBM or MKV — including large ones, thanks to chunked upload.",
       },
     ],
   },
@@ -108,7 +108,7 @@ export const CONTENT_PAGES: ContentPage[] = [
       },
       {
         h2: "Any common format",
-        body: "MP4, MOV, WEBM and MKV are supported, including large files thanks to chunked upload. You can also paste a YouTube link instead of exporting a file.",
+        body: "MP4, MOV, WEBM and MKV are supported, including large files thanks to chunked upload — the video goes straight from your browser to storage, so size is not a problem.",
       },
     ],
     bullets: [
@@ -124,41 +124,58 @@ export const CONTENT_PAGES: ContentPage[] = [
       },
       {
         q: "What formats can I upload?",
-        a: "MP4, MOV, WEBM and MKV — or paste a public YouTube URL.",
+        a: "MP4, MOV, WEBM and MKV.",
       },
     ],
   },
   {
-    slug: "youtube-to-text",
+slug: "youtube-to-text",
     h1: "YouTube to text: turn a YouTube video into AI-ready notes",
     metaTitle: "YouTube to Text — Convert a YouTube Video for AI",
     description:
-      "Paste a YouTube link and get AI-ready text: a timestamped transcript, on-screen text and a structured skill.md. No download, no software to install.",
-    keywords: ["youtube to text", "youtube transcript", "youtube to ai", "convert youtube video to text"],
+      "Turn a YouTube video into AI-ready text: a timestamped transcript, on-screen text and a structured skill.md. Save the video, drop it in, get a file any AI can read.",
+    keywords: [
+      "youtube to text",
+      "youtube transcript",
+      "youtube to ai",
+      "convert youtube video to text",
+    ],
     intro: [
-      "Paste a public YouTube URL and Video2Skill does the rest — no downloading, no editing software. You get clean, timestamped text an AI can actually work with.",
-      "Choose a quick transcript, or the full skill.md that also captures what appears on screen.",
+      "Save the YouTube video to your computer, drop the file into Video2Skill, and get clean, timestamped text an AI can actually work with.",
+      "Choose a quick transcript, or the full skill.md that also captures what appears on screen — the buttons, menus and dialogs a transcript can never record.",
     ],
     sections: [
       {
-        h2: "From link to knowledge in one step",
-        body: "Video2Skill fetches the video, transcribes it with timestamps, reads the on-screen text and, in full mode, analyzes each key moment — then hands you a single file.",
+        h2: "Why you upload the file instead of pasting a link",
+        body: "YouTube blocks automated downloads from server infrastructure, and any tool that claims otherwise is either fetching low-quality auto-captions or will break the week YouTube tightens its checks. We would rather ask you for one extra step than hand you a file that silently misses half the video. Save the video with any YouTube downloader, then upload it here.",
+      },
+      {
+        h2: "What you get that captions don't give you",
+        body: "YouTube's own captions record what was said, never what was shown. For a software tutorial that is the half that matters: the narrator says \"click here and set this to weekly\" and neither *here* nor *this* exists in the caption track. Video2Skill adds OCR of every on-screen label and a visual analysis of each key moment, so every step is tied to something actually visible.",
       },
       {
         h2: "Use it anywhere",
-        body: "Feed the result to ChatGPT or Claude to summarize, answer questions or extract a step-by-step guide from a tutorial.",
+        body: "Feed the result to ChatGPT, Claude or your own agent to summarize, answer questions or follow a step-by-step procedure extracted from the tutorial.",
       },
     ],
     bullets: [
-      "Just paste a link — nothing to install",
-      "Timestamped transcript",
-      "Full skill.md option with on-screen context",
+      "Timestamped transcript you can cite",
+      "On-screen text captured with OCR",
+      "Full skill.md option with visual context",
       "Cheaper transcript-only mode",
     ],
     faq: [
       {
-        q: "Do I need to download the YouTube video?",
-        a: "No. Paste the link and Video2Skill handles it. Only process videos you have the rights to.",
+        q: "Why can't I just paste a YouTube link?",
+        a: "YouTube blocks automated downloads from datacenter servers. Rather than ship a feature that works one day and fails the next, we ask you to upload the file — which always works, for any video, at full quality.",
+      },
+      {
+        q: "How do I save a YouTube video?",
+        a: "Any YouTube downloader works, and YouTube Premium lets you download your own and others' videos officially. Only process videos you have the rights to.",
+      },
+      {
+        q: "Isn't this the same as YouTube's automatic captions?",
+        a: "No. Auto-captions are one imperfect text track. Video2Skill transcribes the audio directly, reads the on-screen text, and analyzes the interface at each key moment — then grounds every procedural step in that evidence.",
       },
       {
         q: "Does it keep timestamps?",
@@ -171,16 +188,16 @@ export const CONTENT_PAGES: ContentPage[] = [
     h1: "How to give a video to ChatGPT",
     metaTitle: "How to Give a Video to ChatGPT (or Claude)",
     description:
-      "ChatGPT can't watch a video — but it can read one. Convert any video or YouTube link into a skill.md with Video2Skill, then paste it into ChatGPT or Claude.",
+      "ChatGPT can't watch a video — but it can read one. Convert any video into a skill.md with Video2Skill, then paste it into ChatGPT or Claude.",
     keywords: ["give a video to chatgpt", "chatgpt video", "video for chatgpt", "claude video"],
     intro: [
       "ChatGPT and Claude can't open a video, but they're excellent at reading text. The trick is to turn the video into rich, structured text first.",
-      "Video2Skill converts any video (or YouTube link) into a skill.md you paste straight into your chat.",
+      "Video2Skill converts any video file into a skill.md you paste straight into your chat.",
     ],
     sections: [
       {
         h2: "Three steps",
-        body: "1) Add your video or paste a YouTube link. 2) Let Video2Skill build the skill.md (transcript + on-screen text + visual analysis). 3) Download it and paste it into ChatGPT or Claude, then ask your questions.",
+        body: "1) Drop in your video file. 2) Let Video2Skill build the skill.md (transcript + on-screen text + visual analysis). 3) Download it and paste it into ChatGPT or Claude, then ask your questions.",
       },
       {
         h2: "Why not just paste a transcript?",
@@ -189,7 +206,7 @@ export const CONTENT_PAGES: ContentPage[] = [
     ],
     bullets: [
       "Works with ChatGPT, Claude and any LLM",
-      "Video file or YouTube link",
+      "Any common video file",
       "Keeps timestamps and on-screen text",
       "Free credits to try it",
     ],

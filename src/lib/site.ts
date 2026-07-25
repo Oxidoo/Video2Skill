@@ -30,7 +30,7 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "How do I convert a video for an AI?",
-    a: "Sign in with Google, drop your video (or paste a link), then start. The tool automatically generates a skill.md with the content, timestamps and visual cues, which you download and give to your AI.",
+    a: "Sign in with Google, drop your video file, then start. The tool automatically generates a skill.md with the content, timestamps and visual cues, which you download and give to your AI.",
   },
   {
     q: "How much does it cost?",
@@ -38,7 +38,7 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Which video formats are supported?",
-    a: "Common formats are supported: MP4, MOV, WEBM and MKV, including large files thanks to chunked upload. You can also paste a public YouTube link.",
+    a: "Common formats are supported: MP4, MOV, WEBM and MKV, including large files thanks to chunked upload."
   },
   {
     q: "Is the skill.md reliable?",

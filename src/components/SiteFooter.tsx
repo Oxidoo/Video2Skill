@@ -28,11 +28,6 @@ export function SiteFooter() {
                 <li><Link href="/dashboard" className="hover:text-gray-900">Studio</Link></li>
                 <li><Link href="/pricing" className="hover:text-gray-900">Pricing</Link></li>
                 <li><Link href="/skills" className="hover:text-gray-900">Skill library</Link></li>
-                <li>
-                  <Link href="/free-youtube-transcript" className="hover:text-gray-900">
-                    Free YouTube transcript
-                  </Link>
-                </li>
               </ul>
             </div>
             <div>
