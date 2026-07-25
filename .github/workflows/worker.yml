@@ -8,7 +8,12 @@
 #   DATABASE_URL           URL Supabase pooler SESSION (port 5432 — IPv4)
 #   BLOB_READ_WRITE_TOKEN  token Vercel Blob
 #   OPENAI_API_KEY         transcription
-#   ANTHROPIC_API_KEY      vision + synthèse
+#   ANTHROPIC_API_KEY      vision + synthèse + audit — REQUISE par défaut
+#                          (mets les Variables VISION/SYNTHESIS/QUALITY_PROVIDER
+#                          à 'openai' si tu veux t'en passer)
+#
+# Les Variables (même écran, onglet Variables) permettent de changer modèles et
+# budget d'images sans redéployer. Toutes ont un défaut ci-dessous.
 name: worker
 
 on:
@@ -42,14 +47,29 @@ jobs:
       - name: Vérifier la configuration
         id: check
         env:
-          # ANTHROPIC_API_KEY est optionnelle : requise seulement si un provider
-          # est configuré sur "anthropic" (repo Variables).
-          CONFIGURED: ${{ secrets.DATABASE_URL != '' && secrets.BLOB_READ_WRITE_TOKEN != '' && secrets.OPENAI_API_KEY != '' }}
+          BASE_OK: ${{ secrets.DATABASE_URL != '' && secrets.BLOB_READ_WRITE_TOKEN != '' && secrets.OPENAI_API_KEY != '' }}
+          HAS_ANTHROPIC: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          # Doivent rester identiques aux valeurs passées à l'étape « Traiter ».
+          VISION_PROVIDER: ${{ vars.VISION_PROVIDER || 'anthropic' }}
+          SYNTHESIS_PROVIDER: ${{ vars.SYNTHESIS_PROVIDER || 'anthropic' }}
+          QUALITY_PROVIDER: ${{ vars.QUALITY_PROVIDER || vars.SYNTHESIS_PROVIDER || 'anthropic' }}
         run: |
-          echo "ok=$CONFIGURED" >> "$GITHUB_OUTPUT"
-          if [ "$CONFIGURED" != "true" ]; then
+          if [ "$BASE_OK" != "true" ]; then
             echo "::warning::Secrets manquants (DATABASE_URL, BLOB_READ_WRITE_TOKEN, OPENAI_API_KEY) — run ignoré."
+            echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
           fi
+          # ANTHROPIC_API_KEY n'est requise que si un étage est sur "anthropic" —
+          # ce qui est le cas par défaut depuis le passage de la vision sur Haiku.
+          # Sans elle, chaque job échouerait un par un après avoir payé ffmpeg.
+          NEEDS_ANTHROPIC=false
+          for p in "$VISION_PROVIDER" "$SYNTHESIS_PROVIDER" "$QUALITY_PROVIDER"; do
+            [ "$p" = "anthropic" ] && NEEDS_ANTHROPIC=true
+          done
+          if [ "$NEEDS_ANTHROPIC" = "true" ] && [ "$HAS_ANTHROPIC" != "true" ]; then
+            echo "::error::ANTHROPIC_API_KEY manquante alors que vision/synthèse/audit sont sur 'anthropic'. Ajoute le secret, ou mets les Variables VISION_PROVIDER / SYNTHESIS_PROVIDER / QUALITY_PROVIDER à 'openai'."
+            echo "ok=false" >> "$GITHUB_OUTPUT"; exit 1
+          fi
+          echo "ok=true" >> "$GITHUB_OUTPUT"
 
       - name: Checkout
         if: steps.check.outputs.ok == 'true'
@@ -82,10 +102,35 @@ jobs:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+          # --- Facturation. Doivent correspondre aux valeurs de l'app, sinon le
+          # worker solde les crédits sur un barème différent de celui affiché.
           CREDITS_PER_MINUTE: ${{ vars.CREDITS_PER_MINUTE || '1' }}
-          # Providers IA — modifiables sans toucher au code via
+          TRANSCRIPT_MINUTES_PER_CREDIT: ${{ vars.TRANSCRIPT_MINUTES_PER_CREDIT || '3' }}
+          FREE_TRANSCRIPT_MAX_MINUTES: ${{ vars.FREE_TRANSCRIPT_MAX_MINUTES || '20' }}
+
+          # --- Providers IA. Modifiables sans toucher au code via
           # Settings → Secrets and variables → Actions → Variables.
+          # La vision est un appel PAR IMAGE et ne fait que de l'extraction JSON :
+          # c'est le poste le plus cher et le moins exigeant, d'où Haiku. La
+          # synthèse et l'audit sont un appel chacun, là où le modèle compte.
           TRANSCRIPTION_PROVIDER: ${{ vars.TRANSCRIPTION_PROVIDER || 'openai' }}
-          VISION_PROVIDER: ${{ vars.VISION_PROVIDER || 'openai' }}
-          SYNTHESIS_PROVIDER: ${{ vars.SYNTHESIS_PROVIDER || 'openai' }}
+          VISION_PROVIDER: ${{ vars.VISION_PROVIDER || 'anthropic' }}
+          SYNTHESIS_PROVIDER: ${{ vars.SYNTHESIS_PROVIDER || 'anthropic' }}
+          QUALITY_PROVIDER: ${{ vars.QUALITY_PROVIDER || vars.SYNTHESIS_PROVIDER || 'anthropic' }}
+          ANTHROPIC_VISION_MODEL: ${{ vars.ANTHROPIC_VISION_MODEL || 'claude-haiku-4-5' }}
+          ANTHROPIC_SYNTHESIS_MODEL: ${{ vars.ANTHROPIC_SYNTHESIS_MODEL || 'claude-sonnet-5' }}
+          ANTHROPIC_QUALITY_MODEL: ${{ vars.ANTHROPIC_QUALITY_MODEL || vars.ANTHROPIC_SYNTHESIS_MODEL || 'claude-sonnet-5' }}
+          OPENAI_TRANSCRIBE_MODEL: ${{ vars.OPENAI_TRANSCRIBE_MODEL || 'gpt-4o-transcribe' }}
+
+          # --- Budget d'images. Le coût de la vision est directement
+          # FRAMES_PER_MINUTE × durée, borné par MIN/MAX.
+          FRAMES_PER_MINUTE: ${{ vars.FRAMES_PER_MINUTE || '3' }}
+          MIN_VISION_FRAMES: ${{ vars.MIN_VISION_FRAMES || '12' }}
+          MAX_VISION_FRAMES: ${{ vars.MAX_VISION_FRAMES || '60' }}
+          VISION_CONCURRENCY: ${{ vars.VISION_CONCURRENCY || '4' }}
+          VISION_RETRY_MAX_FRAMES: ${{ vars.VISION_RETRY_MAX_FRAMES || '8' }}
+          QUALITY_MIN_SCORE: ${{ vars.QUALITY_MIN_SCORE || '80' }}
+          OCR_LANGS: ${{ vars.OCR_LANGS || 'fra+eng' }}
+          AUDIO_CODEC: ${{ vars.AUDIO_CODEC || 'flac' }}
         run: npm run worker:drain

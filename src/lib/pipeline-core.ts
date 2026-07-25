@@ -1,14 +1,21 @@
 import fs from "fs/promises";
 import path from "path";
 import { buildTimeline } from "./align";
-import { extractAudio, extractFrames, probeVideo, type VideoMeta } from "./ffmpeg";
+import { visionFrameBudget } from "./config";
+import { extractAudio, extractMedia, probeVideo, type VideoMeta } from "./ffmpeg";
 import { deduplicateFrames } from "./frames";
 import { runOcr } from "./ocr";
 import { runQualityCheck } from "./quality-check";
 import { generateSkill } from "./skill-generator";
 import { transcribeChunks } from "./transcript";
 import { analyzeFrames } from "./vision";
-import type { JobOptions, JobStage, QualityReport, TimelineEntry, TranscriptSegment } from "./schemas";
+import type {
+  JobOptions,
+  JobStage,
+  QualityReport,
+  TimelineEntry,
+  TranscriptSegment,
+} from "./schemas";
 
 export interface ProgressUpdate {
   stage?: JobStage;
@@ -67,18 +74,35 @@ export async function processVideo(opts: {
   if (meta.durationSec < 1) throw new Error("Unreadable or empty video.");
   if (opts.onProbe) await opts.onProbe(meta);
 
-  // 2. Audio
-  await set("extracting_audio", 12, "Extracting and splitting audio");
-  const audioChunks = await extractAudio(videoPath, audioDir);
+  const transcriptOnly = options.outputType === "transcript";
 
-  // 3. Transcription
+  // 2. Media extraction. For a full skill.md this is a single ffmpeg decode
+  //    producing the audio chunks, the sampled frames and the scene-change
+  //    frames at once — the pipeline used to decode the video four times.
+  await set(
+    "extracting_audio",
+    12,
+    transcriptOnly ? "Extracting and splitting audio" : "Extracting audio and frames"
+  );
+  const frameBudget = visionFrameBudget(meta.durationSec);
+  const media = transcriptOnly
+    ? { audioChunks: await extractAudio(videoPath, audioDir), frames: [] }
+    : await extractMedia(videoPath, audioDir, framesDir, meta.durationSec, frameBudget);
+
+  // 3. Transcription (chunks run in parallel)
   await set("transcribing", 20, "Timestamped transcription");
-  const transcript = await transcribeChunks(audioChunks, options.language, async (done, total) => {
-    await onProgress({ progress: 20 + Math.round((done / total) * (options.outputType === "transcript" ? 70 : 15)) });
-  });
+  const transcript = await transcribeChunks(
+    media.audioChunks,
+    options.language,
+    async (done, total) => {
+      await onProgress({
+        progress: 20 + Math.round((done / total) * (transcriptOnly ? 70 : 15)),
+      });
+    }
+  );
 
   // Transcript-only mode: stop here.
-  if (options.outputType === "transcript") {
+  if (transcriptOnly) {
     await set("generating", 95, "Formatting transcript");
     const trivialReport: QualityReport = { score: 100, issues: [] };
     return {
@@ -92,29 +116,33 @@ export async function processVideo(opts: {
     };
   }
 
-  // 4. Frames
-  await set("extracting_frames", 35, "Extracting frames (regular + scene changes)");
-  const allFrames = await extractFrames(videoPath, framesDir, meta.durationSec);
-
-  // 5. Dedup
-  await set("deduplicating", 45, `Deduplicating frames (${allFrames.length} raw)`);
-  const frames = await deduplicateFrames(allFrames);
+  // 4. Dedup + budget. The budget scales with duration so a short clip no
+  //    longer costs as much vision as an hour-long one.
+  await set(
+    "extracting_frames",
+    35,
+    `${media.frames.length} candidate frames extracted`
+  );
+  await set("deduplicating", 45, `Deduplicating frames (budget: ${frameBudget})`);
+  const frames = await deduplicateFrames(media.frames, frameBudget);
   await onProgress({ message: `${frames.length} useful frames kept` });
 
-  // 6. OCR
+  // 5. OCR
   await set("ocr", 50, "OCR on frames (Tesseract)");
-  const ocrResults = await runOcr(frames);
+  const ocrResults = await runOcr(frames, async (done, total) => {
+    await onProgress({ progress: 50 + Math.round((done / total) * 5), message: `OCR ${done}/${total}` });
+  });
 
-  // 7. Vision
+  // 6. Vision
   await set("vision", 55, "Visual analysis of frames");
-  const visual = await analyzeFrames(frames, ocrResults, transcript, async (done, total) => {
+  const visual = await analyzeFrames(frames, ocrResults, transcript, async (done, total, note) => {
     await onProgress({
       progress: 55 + Math.round((done / total) * 25),
-      message: `Visual analysis ${done}/${total}`,
+      message: note ?? `Visual analysis ${done}/${total}`,
     });
   });
 
-  // 8. Timeline
+  // 7. Timeline
   await set("merging", 80, "Merging transcript + OCR + vision");
   const timeline: TimelineEntry[] = buildTimeline(
     transcript,
@@ -124,7 +152,7 @@ export async function processVideo(opts: {
     meta.durationSec
   );
 
-  // 9. skill.md
+  // 8. skill.md
   await set("generating", 85, "Generating skill.md");
   const draft = await generateSkill({
     fileName,
@@ -133,12 +161,12 @@ export async function processVideo(opts: {
     options,
   });
 
-  // 10. Quality check
+  // 9. Quality check. The audit always runs; the expensive rewrite only happens
+  //    when the audit says the document falls below the bar.
   await set("quality_check", 92, "Quality check");
-  let audited = await runQualityCheck(draft, timeline);
-  if (options.ultraPrecise && audited.finalSkill !== draft) {
-    audited = await runQualityCheck(audited.finalSkill, timeline);
-  }
+  const audited = await runQualityCheck(draft, timeline, {
+    maxRepairs: options.ultraPrecise ? 2 : 1,
+  });
 
   return {
     meta,

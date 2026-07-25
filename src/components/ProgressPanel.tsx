@@ -6,7 +6,7 @@ import { Spinner } from "./Spinner";
 const STEPS: { key: string; label: string; stages: string[] }[] = [
   { key: "queue", label: "Queue", stages: ["queued", "created", "uploading", "uploaded"] },
   { key: "probe", label: "Video analysis", stages: ["probing"] },
-  { key: "audio", label: "Audio extraction", stages: ["extracting_audio"] },
+  { key: "audio", label: "Media extraction", stages: ["extracting_audio"] },
   { key: "transcribe", label: "Transcription", stages: ["transcribing"] },
   { key: "frames", label: "Frame extraction", stages: ["extracting_frames", "deduplicating"] },
   { key: "ocr", label: "OCR", stages: ["ocr"] },

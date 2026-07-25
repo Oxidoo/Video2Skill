@@ -27,6 +27,12 @@ export function SiteFooter() {
               <ul className="mt-3 space-y-2 text-gray-500">
                 <li><Link href="/dashboard" className="hover:text-gray-900">Studio</Link></li>
                 <li><Link href="/pricing" className="hover:text-gray-900">Pricing</Link></li>
+                <li><Link href="/skills" className="hover:text-gray-900">Skill library</Link></li>
+                <li>
+                  <Link href="/free-youtube-transcript" className="hover:text-gray-900">
+                    Free YouTube transcript
+                  </Link>
+                </li>
               </ul>
             </div>
             <div>

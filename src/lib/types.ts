@@ -14,4 +14,8 @@ export interface JobStatus {
   skillUrl: string | null;
   createdAt: string;
   updatedAt: string;
+  // Public publishing (opt-in, skill.md outputs only).
+  isPublic?: boolean;
+  publicSlug?: string | null;
+  outputType?: string;
 }

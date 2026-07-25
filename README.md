@@ -47,10 +47,34 @@ Vercel. L'app est donc découpée en deux déployables (un seul dépôt) :
 ## Pipeline
 
 ```
-vidéo → audio → transcription horodatée → captures clés → OCR
-→ analyse visuelle → alignement audio+image → procédures
-→ génération skill.md → contrôle qualité
+vidéo → [1 passe ffmpeg : audio segmenté + captures + scènes]
+→ transcription horodatée (chunks en parallèle) → dédoublonnage perceptuel
+→ OCR → analyse visuelle (+ 2ᵉ passe HD sur les images illisibles)
+→ alignement audio+image → génération skill.md → audit qualité
 ```
+
+Quelques propriétés qui pilotent le coût et la vitesse :
+
+- **Une seule passe de décodage.** ffmpeg produit l'audio segmenté, les captures
+  régulières et les captures de changement de scène en une invocation. Les
+  timestamps de chaque image viennent d'un fichier `metadata=print` par sortie,
+  ce qui les rend exacts même sur une source à débit d'images variable.
+- **Budget d'images proportionnel à la durée** (`FRAMES_PER_MINUTE`, borné par
+  `MIN_VISION_FRAMES` / `MAX_VISION_FRAMES`). L'intervalle d'échantillonnage est
+  déduit du budget : une vidéo de 2 h extrait ~180 images au lieu de 1440.
+- **Modèle par étage.** L'analyse par image est un appel par capture et ne fait
+  que de l'extraction JSON → modèle le moins cher. La synthèse et l'audit sont
+  un appel chacun → modèle plus fort. Voir `modelFor()` dans `src/lib/config.ts`.
+- **Sorties structurées** : le schéma JSON est imposé au modèle, ce qui supprime
+  les échecs de parsing plutôt que de les rattraper.
+- **Audit avant réécriture.** Le contrôle qualité renvoie d'abord des
+  constatations (sortie courte) ; la réécriture complète du document n'a lieu que
+  si le score passe sous `QUALITY_MIN_SCORE` ou qu'une anomalie « high » est
+  signalée. Chaque réécriture est ré-auditée, donc le score stocké décrit bien
+  le document livré.
+- **Battement de cœur du worker.** Les étapes longues et silencieuses
+  maintiennent `Job.updatedAt` à jour, sans quoi la reprise des jobs bloqués
+  remet en file un job encore en cours — et la facture IA est payée deux fois.
 
 ## Modèle de crédits
 
@@ -60,6 +84,24 @@ vidéo → audio → transcription horodatée → captures clés → OCR
 - À la fin : le worker **solde** selon la durée réelle (remboursement du trop-perçu).
 - En cas d'échec : **remboursement intégral**.
 - Packs achetables définis dans `src/lib/billing.ts`.
+
+### Transcription gratuite (acquisition)
+
+`/free-youtube-transcript` produit un transcript horodaté d'une vidéo YouTube
+publique **sans compte**. Le job est anonyme (`Job.userId` à `null`), ne touche
+jamais le grand livre de crédits et ne coûte que l'appel de transcription. Le
+plafond quotidien est compté par client via un hash salé de son adresse — jamais
+l'adresse elle-même (`src/lib/anon.ts`). Réglages : `FREE_TRANSCRIPT_*`.
+
+### Pages skill.md publiques (SEO)
+
+Un `skill.md` terminé peut être publié sur `/skills/<slug>`, une page indexable
+qui alimente le sitemap. C'est **opt-in** et l'API exige une confirmation
+explicite des droits sur la vidéo source ; seuls les `skill.md` sont publiables,
+jamais les transcripts (qui sont une copie quasi verbatim de la source). Le
+rendu Markdown échappe le HTML **avant** toute transformation, de sorte qu'aucun
+contenu généré ne peut produire de balise (`src/lib/markdown.ts`). Réglage :
+`PUBLIC_SKILLS_ENABLED`.
 
 ---
 

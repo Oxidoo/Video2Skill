@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { JobStatus } from "@/lib/types";
 import { ProgressPanel } from "./ProgressPanel";
 import { DownloadButton } from "./DownloadButton";
+import { PublishToggle } from "./PublishToggle";
 
 const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   queued: { label: "Queued", className: "bg-gray-100 text-gray-600" },
@@ -51,6 +52,15 @@ function JobDetail({ initial }: { initial: JobStatus }) {
       {job.status === "done" && (
         <div className="mt-3">
           <DownloadButton jobId={job.id} qualityScore={job.qualityScore} />
+          {/* Transcripts are a near-verbatim copy of the source video, so only
+              generated skill.md documents can be published. */}
+          {job.outputType !== "transcript" && (
+            <PublishToggle
+              jobId={job.id}
+              initialPublic={Boolean(job.isPublic)}
+              initialSlug={job.publicSlug ?? null}
+            />
+          )}
         </div>
       )}
     </div>
