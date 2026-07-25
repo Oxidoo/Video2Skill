@@ -20,7 +20,11 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import { execa } from "execa";
-import { downloadYoutube, YoutubeDownloadError } from "../src/lib/youtube-download";
+import {
+  downloadYoutube,
+  normalizeCookieJar,
+  YoutubeDownloadError,
+} from "../src/lib/youtube-download";
 import { normalizeYoutubeUrl } from "../src/lib/youtube";
 import { fetchYoutubeInfo } from "../src/lib/youtube";
 
@@ -54,10 +58,30 @@ async function main() {
   const proxy = process.env.YTDLP_PROXY?.trim();
   const cookies = process.env.YOUTUBE_COOKIES?.trim();
   const extra = process.env.YTDLP_EXTRA_ARGS?.trim();
-  console.log(`${proxy ? OK : WARN} proxy     ${proxy ? "configured" : "none (datacenter IPs are commonly bot-checked)"}`);
   console.log(
-    `${cookies ? OK : WARN} cookies   ${cookies ? `configured (${cookies.split("\n").length} lines)` : "none"}`
+    `${proxy ? OK : WARN} proxy     ${proxy ? "configured" : "none (datacenter IPs are commonly bot-checked)"}`
   );
+
+  // Report what the jar parses to, not merely that the variable is set. A jar
+  // whose tabs were eaten by a paste, or a JSON export, is silently ignored at
+  // download time — that must be visible here rather than at job-failure time.
+  if (!cookies) {
+    console.log(`${WARN} cookies   none`);
+  } else {
+    const jar = normalizeCookieJar(cookies);
+    if (!jar) {
+      console.log(
+        `${NO} cookies   set but NOT a Netscape cookie jar — it is being ignored. Export with a "Get cookies.txt" extension and paste the whole file.`
+      );
+    } else {
+      const entries = jar.split("\n").filter((l) => l.includes("\t"));
+      const auth = entries.filter((l) => /\b(SID|__Secure-\dPSID)\b/.test(l)).length;
+      console.log(
+        `${auth > 0 ? OK : WARN} cookies   ${entries.length} cookies parsed, ${auth} session cookie(s)` +
+          (auth === 0 ? " — no SID/__Secure-*PSID found, this jar is not signed in" : "")
+      );
+    }
+  }
   if (extra) console.log(`${OK} extra     YTDLP_EXTRA_ARGS=${extra}`);
 
   if (!canonical) {

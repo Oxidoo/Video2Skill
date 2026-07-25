@@ -121,22 +121,95 @@ async function writeCookieFile(workDir: string): Promise<string | null> {
   const raw = process.env.YOUTUBE_COOKIES?.trim();
   if (!raw) return null;
 
-  // A JSON export or a copy-pasted header is the common mistake, and yt-dlp's
-  // own error for it is opaque. Say so once, here, rather than letting every
-  // job fail with something unrelated-looking.
-  const looksNetscape =
-    raw.includes("# Netscape HTTP Cookie File") || /^\.?[\w.-]+\t\w+\t\S+\t\w+\t\d+\t/m.test(raw);
-  if (!looksNetscape) {
+  const normalized = normalizeCookieJar(raw);
+  if (!normalized) {
+    // A JSON export or a pasted Cookie header is the common mistake, and
+    // yt-dlp's error for it points nowhere useful. Say so once, here, rather
+    // than letting every job fail with something unrelated-looking.
     console.error(
-      "[yt-dlp] YOUTUBE_COOKIES is set but is not a Netscape cookie file — ignoring it. " +
-        "Export with a 'Get cookies.txt' browser extension; a JSON export or a raw Cookie header will not work."
+      "[yt-dlp] YOUTUBE_COOKIES is set but is not a Netscape cookie jar — ignoring it. " +
+        "Export with a 'Get cookies.txt' browser extension and paste the whole file; " +
+        "a JSON export or a raw Cookie header will not work."
     );
     return null;
   }
 
   const file = path.join(workDir, "yt-cookies.txt");
-  await fs.writeFile(file, raw.endsWith("\n") ? raw : `${raw}\n`, { mode: 0o600 });
+  await fs.writeFile(file, normalized, { mode: 0o600 });
   return file;
+}
+
+/**
+ * Validate and repair a Netscape cookie jar.
+ *
+ * The jar is tab-separated, and the transport for this value is a paste into a
+ * secrets form. Editors, terminals and web forms routinely turn those tabs into
+ * runs of spaces, which yt-dlp rejects with an error that says nothing about
+ * whitespace — so the fix is to put the tabs back rather than to blame the user
+ * for a conversion they never saw happen.
+ *
+ * Returns null when the content isn't a cookie jar at all.
+ */
+const HTTP_ONLY = "#HttpOnly_";
+
+export function normalizeCookieJar(raw: string): string | null {
+  const lines = raw.replace(/\r\n/g, "\n").split("\n");
+  const out: string[] = [];
+  let dataLines = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith("#")) {
+      // "#HttpOnly_" only looks like a comment. It prefixes a real cookie line,
+      // and YouTube's session cookies (SID, SSID, HSID) are exported exactly
+      // that way — dropping them would leave a jar that authenticates nothing.
+      // Repair the fields without the marker, then put it back.
+      if (trimmed.startsWith(HTTP_ONLY)) {
+        const repaired = repairFields(trimmed.slice(HTTP_ONLY.length));
+        if (repaired) {
+          out.push(HTTP_ONLY + repaired);
+          dataLines++;
+          continue;
+        }
+      }
+      out.push(trimmed);
+      continue;
+    }
+    const repaired = repairFields(trimmed);
+    if (repaired) {
+      out.push(repaired);
+      dataLines++;
+    }
+  }
+
+  if (dataLines === 0) return null;
+  // yt-dlp keys off this header; add it when a paste dropped the comments.
+  if (!out.some((l) => l.startsWith("# Netscape HTTP Cookie File"))) {
+    out.unshift("# Netscape HTTP Cookie File");
+  }
+  return `${out.join("\n")}\n`;
+}
+
+/**
+ * A cookie line is exactly 7 fields: domain, includeSubdomains, path, secure,
+ * expiry, name, value. Split on any whitespace run and re-join with tabs. The
+ * value is the only field that may itself contain spaces, so everything past
+ * the sixth field is put back together.
+ */
+function repairFields(line: string): string | null {
+  const parts = line.split(/\s+/);
+  if (parts.length < 6) return null;
+  const [domain, includeSub, cookiePath, secure, expiry] = parts;
+  if (!/^\.?[\w.-]+$/.test(domain)) return null;
+  if (!/^(TRUE|FALSE)$/i.test(includeSub) || !/^(TRUE|FALSE)$/i.test(secure)) return null;
+  if (!cookiePath.startsWith("/")) return null;
+  if (!/^\d+$/.test(expiry)) return null;
+
+  const name = parts[5];
+  // A cookie with an empty value is legal and arrives as only six fields.
+  const value = parts.slice(6).join(" ");
+  return [domain, includeSub.toUpperCase(), cookiePath, secure.toUpperCase(), expiry, name, value].join("\t");
 }
 
 /** Operator escape hatch: extra yt-dlp flags, whitespace-separated. */
