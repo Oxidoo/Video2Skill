@@ -80,11 +80,12 @@ async function claimNextJob(): Promise<string | null> {
 async function downloadSource(
   url: string,
   destBase: string,
-  workDir: string
+  workDir: string,
+  audioOnly: boolean
 ): Promise<string> {
   if (isYoutubeUrl(url)) {
     const canonical = normalizeYoutubeUrl(url) ?? url;
-    return downloadYoutube(canonical, destBase, { workDir });
+    return downloadYoutube(canonical, destBase, { workDir, audioOnly });
   }
   const res = await fetch(url);
   if (!res.ok || !res.body) throw new Error(`Video download failed (${res.status})`);
@@ -198,7 +199,15 @@ async function processJob(jobId: string): Promise<void> {
         message: isYoutubeUrl(job.videoUrl) ? "Downloading from YouTube" : "Downloading video",
       },
     });
-    const localVideo = await downloadSource(job.videoUrl, videoPath, workDir);
+    // Transcript-only jobs never look at a frame, so there is no reason to pull
+    // the video stream: it is bandwidth, time and (behind a metered proxy)
+    // money spent on bytes that get discarded.
+    const localVideo = await downloadSource(
+      job.videoUrl,
+      videoPath,
+      workDir,
+      options.outputType === "transcript"
+    );
 
     const result = await processVideo({
       videoPath: localVideo,

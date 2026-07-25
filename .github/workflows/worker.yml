@@ -148,12 +148,25 @@ jobs:
           OCR_LANGS: ${{ vars.OCR_LANGS || 'fra+eng' }}
           AUDIO_CODEC: ${{ vars.AUDIO_CODEC || 'flac' }}
 
-          # --- YouTube. Optionnel. Cookies au format Netscape d'un compte
-          # YouTube connecté : c'est le seul contournement fiable du contrôle
-          # anti-bot que YouTube applique aux IP de datacenter (donc à tous les
-          # runners CI). Utilise un compte jetable — YouTube peut restreindre un
-          # compte dont les cookies servent depuis un datacenter, et les cookies
-          # expirent au bout de quelques semaines. Sans ce secret, l'upload de
-          # fichier reste le chemin fiable.
+          # --- YouTube. Tous optionnels. YouTube soumet les IP de datacenter
+          # (donc tous les runners CI) à un contrôle anti-bot qu'aucun réglage
+          # ne contourne de façon fiable ; ces deux variables sont les seules
+          # réponses durables. Sans elles, l'upload de fichier reste le chemin
+          # qui marche toujours, et c'est ce que le message d'erreur propose.
+          #
+          # YTDLP_PROXY : sortie via une IP résidentielle (http://user:pass@host:port).
+          #   Le plus efficace. Les jobs transcript ne téléchargent que l'audio,
+          #   donc le volume facturé par le proxy reste faible.
+          # YOUTUBE_COOKIES : cookies au format Netscape d'un compte connecté.
+          #   Compte jetable obligatoire — YouTube peut restreindre un compte
+          #   dont les cookies servent depuis un datacenter, et ils expirent en
+          #   quelques semaines.
+          # YTDLP_EXTRA_ARGS : échappatoire pour ajouter des flags yt-dlp
+          #   (po_token, etc.) sans toucher au code.
+          #
+          # Teste la configuration avec le workflow « yt-check » avant de créer
+          # un vrai job.
+          YTDLP_PROXY: ${{ secrets.YTDLP_PROXY }}
           YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
+          YTDLP_EXTRA_ARGS: ${{ vars.YTDLP_EXTRA_ARGS }}
         run: npm run worker:drain

@@ -101,10 +101,28 @@ Deux causes d'échec dominent, et le code traite les deux :
   récupère une partie des vidéos, et accepte des cookies via `YOUTUBE_COOKIES`
   quand l'opérateur en fournit.
 
+Deux réglages optionnels sont les seules réponses durables au contrôle anti-bot,
+par ordre d'efficacité : `YTDLP_PROXY` (sortie via une IP résidentielle) et
+`YOUTUBE_COOKIES` (compte jetable). `YTDLP_EXTRA_ARGS` permet d'ajouter
+n'importe quel flag yt-dlp sans toucher au code.
+
+Les jobs « transcription seule » ne téléchargent que l'audio : rien en aval ne
+regarde une image, donc tirer le flux vidéo consommait de la bande passante, du
+temps et — derrière un proxy facturé au volume — de l'argent pour des octets
+jetés. Les formats audio passent aussi par moins de chemins filtrés, donc ils
+échouent moins souvent. `probeVideo` accepte pour cela un fichier sans piste
+vidéo quand le job est en mode transcript.
+
 Quand tout échoue, l'utilisateur reçoit un message exploitable (« téléchargez la
 vidéo et envoyez le fichier ») et non la sortie brute de yt-dlp, et les crédits
 sont remboursés. **L'upload de fichier reste le chemin qui marche toujours** —
 c'est ce vers quoi le message d'erreur oriente.
+
+**Diagnostic.** `npm run yt:check -- "<url>"`, ou le workflow `yt-check` depuis
+l'onglet Actions, répond à la seule question utile quand un job YouTube échoue :
+qu'est-ce que *cet* hôte voit ? Il vérifie yt-dlp, Deno, ffmpeg, le proxy et les
+cookies, puis tente un téléchargement audio réel. Aucun job créé, aucun crédit
+consommé.
 
 ### Transcription gratuite (acquisition)
 
