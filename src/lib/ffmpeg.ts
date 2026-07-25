@@ -57,11 +57,20 @@ export function frameInterval(durationSec: number, frameBudget: number): number 
   return Math.max(config.frameIntervalSec, durationSec / candidates);
 }
 
+export type AudioCodec = "flac" | "wav";
+
+/**
+ * Codecs to try, in order. FLAC is lossless and roughly a quarter the size of
+ * 16 kHz mono WAV, which kept 10-minute chunks uncomfortably close to the 25 MB
+ * transcription upload limit — but the segment muxer's behaviour varies across
+ * ffmpeg builds, so WAV stays as a fallback rather than failing the job.
+ */
+function audioCodecCandidates(): AudioCodec[] {
+  return config.audioCodec === "wav" ? ["wav"] : ["flac", "wav"];
+}
+
 /** ffmpeg args that turn the input's audio into transcription-ready chunks. */
-function audioOutputArgs(audioDir: string): string[] {
-  const codec = config.audioCodec === "wav" ? "wav" : "flac";
-  // FLAC is lossless and roughly a quarter the size of 16 kHz mono WAV, which
-  // kept 10-minute chunks uncomfortably close to the 25 MB upload limit.
+function audioOutputArgs(audioDir: string, codec: AudioCodec): string[] {
   return [
     "-vn",
     "-ac", "1",
@@ -73,6 +82,12 @@ function audioOutputArgs(audioDir: string): string[] {
     "-reset_timestamps", "1",
     path.join(audioDir, `chunk_%03d.${codec}`),
   ];
+}
+
+/** Remove partial output from a failed attempt so the retry starts clean. */
+async function clearDir(dir: string): Promise<void> {
+  const files = await fs.readdir(dir).catch(() => [] as string[]);
+  await Promise.all(files.map((f) => fs.rm(path.join(dir, f), { force: true }).catch(() => {})));
 }
 
 /**
@@ -153,14 +168,44 @@ async function collectFrames(
   return frames.sort((a, b) => a.timestamp - b.timestamp);
 }
 
-async function listAudioChunks(audioDir: string): Promise<string[]> {
-  const ext = config.audioCodec === "wav" ? ".wav" : ".flac";
+async function listAudioChunks(audioDir: string, codec: AudioCodec): Promise<string[]> {
   const files = (await fs.readdir(audioDir))
-    .filter((f) => f.startsWith("chunk_") && f.endsWith(ext))
+    .filter((f) => f.startsWith("chunk_") && f.endsWith(`.${codec}`))
     .sort()
     .map((f) => path.join(audioDir, f));
   if (files.length === 0) throw new Error("Audio extraction produced no chunks.");
   return files;
+}
+
+/**
+ * Run one ffmpeg invocation per candidate audio codec until one produces
+ * chunks. `extraOutputs` lets the caller attach the frame outputs to the same
+ * decode. Returns the chunk paths.
+ */
+async function runExtraction(
+  videoPath: string,
+  audioDir: string,
+  extraOutputs: string[]
+): Promise<string[]> {
+  let lastError: unknown;
+  for (const codec of audioCodecCandidates()) {
+    try {
+      await execa(
+        "ffmpeg",
+        ["-y", "-i", videoPath, ...audioOutputArgs(audioDir, codec), ...extraOutputs],
+        { timeout: config.ffmpegTimeoutMs }
+      );
+      return await listAudioChunks(audioDir, codec);
+    } catch (err) {
+      lastError = err;
+      console.error(
+        `[ffmpeg] ${codec} extraction failed:`,
+        err instanceof Error ? err.message : err
+      );
+      await clearDir(audioDir);
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Audio extraction failed.");
 }
 
 /**
@@ -169,10 +214,7 @@ async function listAudioChunks(audioDir: string): Promise<string[]> {
  * decoded once to a full WAV and then re-read that WAV to segment it).
  */
 export async function extractAudio(videoPath: string, audioDir: string): Promise<string[]> {
-  await execa("ffmpeg", ["-y", "-i", videoPath, ...audioOutputArgs(audioDir)], {
-    timeout: config.ffmpegTimeoutMs,
-  });
-  return listAudioChunks(audioDir);
+  return runExtraction(videoPath, audioDir, []);
 }
 
 /**
@@ -191,40 +233,27 @@ export async function extractMedia(
   frameBudget: number
 ): Promise<{ audioChunks: string[]; frames: ExtractedFrame[]; interval: number }> {
   const interval = frameInterval(durationSec, frameBudget);
+  const regularOutput = frameOutputArgs(framesDir, "regular", `fps=1/${interval.toFixed(3)}`);
+  const sceneOutput = frameOutputArgs(
+    framesDir,
+    "scene",
+    `select='gt(scene,${config.sceneThreshold})'`
+  );
 
-  const args = [
-    "-y",
-    "-i", videoPath,
-    ...audioOutputArgs(audioDir),
-    ...frameOutputArgs(framesDir, "regular", `fps=1/${interval.toFixed(3)}`),
-    ...frameOutputArgs(
-      framesDir,
-      "scene",
-      `select='gt(scene,${config.sceneThreshold})'`
-    ),
-  ];
-
+  let audioChunks: string[];
   try {
-    await execa("ffmpeg", args, { timeout: config.ffmpegTimeoutMs });
+    audioChunks = await runExtraction(videoPath, audioDir, [...regularOutput, ...sceneOutput]);
   } catch (err) {
     // Scene detection is the fragile half (some codecs refuse it). Retry without
     // it rather than losing the whole job — regular frames still cover the video.
-    const fallback = [
-      "-y",
-      "-i", videoPath,
-      ...audioOutputArgs(audioDir),
-      ...frameOutputArgs(framesDir, "regular", `fps=1/${interval.toFixed(3)}`),
-    ];
-    try {
-      await execa("ffmpeg", fallback, { timeout: config.ffmpegTimeoutMs });
-    } catch {
-      throw err instanceof Error ? err : new Error(String(err));
-    }
+    console.error(
+      "[ffmpeg] retrying without scene detection:",
+      err instanceof Error ? err.message : err
+    );
+    await clearDir(framesDir);
+    audioChunks = await runExtraction(videoPath, audioDir, regularOutput);
   }
 
-  const [audioChunks, frames] = await Promise.all([
-    listAudioChunks(audioDir),
-    collectFrames(framesDir, durationSec, interval),
-  ]);
+  const frames = await collectFrames(framesDir, durationSec, interval);
   return { audioChunks, frames, interval };
 }
