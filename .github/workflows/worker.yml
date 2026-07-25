@@ -82,6 +82,16 @@ jobs:
           node-version: 22
           cache: npm
 
+      # yt-dlp needs a JavaScript runtime to decipher YouTube signatures. Without
+      # one it warns, silently falls back to weaker player clients, and those are
+      # exactly the ones YouTube gates hardest ("Sign in to confirm you're not a
+      # bot"). Deno is the runtime yt-dlp enables by default.
+      - name: Deno (JS runtime for yt-dlp)
+        if: steps.check.outputs.ok == 'true'
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
       - name: Install FFmpeg, Tesseract, yt-dlp
         if: steps.check.outputs.ok == 'true'
         run: |
@@ -89,6 +99,10 @@ jobs:
           sudo apt-get install -y -qq ffmpeg tesseract-ocr tesseract-ocr-fra tesseract-ocr-eng
           sudo curl -sL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
+          echo "--- versions ---"
+          ffmpeg -version | head -1
+          yt-dlp --version
+          deno --version | head -1
 
       - name: Installer les dépendances
         if: steps.check.outputs.ok == 'true'
@@ -133,4 +147,13 @@ jobs:
           QUALITY_MIN_SCORE: ${{ vars.QUALITY_MIN_SCORE || '80' }}
           OCR_LANGS: ${{ vars.OCR_LANGS || 'fra+eng' }}
           AUDIO_CODEC: ${{ vars.AUDIO_CODEC || 'flac' }}
+
+          # --- YouTube. Optionnel. Cookies au format Netscape d'un compte
+          # YouTube connecté : c'est le seul contournement fiable du contrôle
+          # anti-bot que YouTube applique aux IP de datacenter (donc à tous les
+          # runners CI). Utilise un compte jetable — YouTube peut restreindre un
+          # compte dont les cookies servent depuis un datacenter, et les cookies
+          # expirent au bout de quelques semaines. Sans ce secret, l'upload de
+          # fichier reste le chemin fiable.
+          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
         run: npm run worker:drain

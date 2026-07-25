@@ -85,6 +85,27 @@ Quelques propriétés qui pilotent le coût et la vitesse :
 - En cas d'échec : **remboursement intégral**.
 - Packs achetables définis dans `src/lib/billing.ts`.
 
+### Ingestion YouTube — limites connues
+
+Télécharger depuis YouTube sur une IP de datacenter n'est pas un problème résolu.
+Deux causes d'échec dominent, et le code traite les deux :
+
+- **Runtime JavaScript.** yt-dlp en a besoin (Deno par défaut) pour déchiffrer
+  les signatures YouTube. Sans lui il bascule silencieusement sur des clients
+  dégradés, qui sont ceux que YouTube bloque le plus. Deno est installé par le
+  workflow et par `Dockerfile.worker`.
+- **Contrôle anti-bot.** YouTube défie les plages d'adresses de datacenter —
+  tous les runners CI, la plupart des hébergeurs. Aucun réglage ne le contourne
+  de façon fiable. `src/lib/youtube-download.ts` fait tourner plusieurs clients
+  (`tv`, `tv_embedded`, mobiles) parce qu'ils ne sont pas filtrés pareil, ce qui
+  récupère une partie des vidéos, et accepte des cookies via `YOUTUBE_COOKIES`
+  quand l'opérateur en fournit.
+
+Quand tout échoue, l'utilisateur reçoit un message exploitable (« téléchargez la
+vidéo et envoyez le fichier ») et non la sortie brute de yt-dlp, et les crédits
+sont remboursés. **L'upload de fichier reste le chemin qui marche toujours** —
+c'est ce vers quoi le message d'erreur oriente.
+
 ### Transcription gratuite (acquisition)
 
 `/free-youtube-transcript` produit un transcript horodaté d'une vidéo YouTube
