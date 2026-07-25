@@ -18,7 +18,10 @@ export interface ExtractedFrame {
   source: "regular" | "scene";
 }
 
-export async function probeVideo(videoPath: string): Promise<VideoMeta> {
+export async function probeVideo(
+  videoPath: string,
+  opts: { requireVideo?: boolean } = {}
+): Promise<VideoMeta> {
   const { stdout } = await execa(
     "ffprobe",
     [
@@ -33,13 +36,22 @@ export async function probeVideo(videoPath: string): Promise<VideoMeta> {
   const info = JSON.parse(stdout);
   const video = info.streams?.find((s: { codec_type: string }) => s.codec_type === "video");
   const audio = info.streams?.find((s: { codec_type: string }) => s.codec_type === "audio");
-  if (!video) throw new Error("No video stream found — file unreadable or not a video.");
 
-  const [num, den] = String(video.r_frame_rate ?? "0/1").split("/").map(Number);
+  // Transcript-only jobs are fed an audio-only download on purpose, so a
+  // missing video stream is expected there rather than a corrupt file.
+  const requireVideo = opts.requireVideo ?? true;
+  if (requireVideo && !video) {
+    throw new Error("No video stream found — file unreadable or not a video.");
+  }
+  if (!audio && !video) {
+    throw new Error("File contains no audio or video stream — unreadable download.");
+  }
+
+  const [num, den] = String(video?.r_frame_rate ?? "0/1").split("/").map(Number);
   return {
     durationSec: Number(info.format?.duration ?? 0),
-    width: Number(video.width ?? 0),
-    height: Number(video.height ?? 0),
+    width: Number(video?.width ?? 0),
+    height: Number(video?.height ?? 0),
     fps: den ? num / den : 0,
     hasAudio: Boolean(audio),
     sizeBytes: Number(info.format?.size ?? 0),

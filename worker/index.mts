@@ -32,7 +32,7 @@ import { recordCredit } from "../src/lib/credits";
 import { creditCost } from "../src/lib/billing";
 import { JobOptions } from "../src/lib/schemas";
 import { isYoutubeUrl, normalizeYoutubeUrl } from "../src/lib/youtube";
-import { execa } from "execa";
+import { downloadYoutube, YoutubeDownloadError } from "../src/lib/youtube-download";
 import type { Job } from "@prisma/client";
 
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 5000);
@@ -77,21 +77,15 @@ async function claimNextJob(): Promise<string | null> {
  * Download the source to a local file and return its path. Handles both blob
  * URLs (direct fetch) and YouTube links (via yt-dlp).
  */
-async function downloadSource(url: string, destBase: string): Promise<string> {
+async function downloadSource(
+  url: string,
+  destBase: string,
+  workDir: string,
+  audioOnly: boolean
+): Promise<string> {
   if (isYoutubeUrl(url)) {
     const canonical = normalizeYoutubeUrl(url) ?? url;
-    await execa(
-      "yt-dlp",
-      [
-        "-f", "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b",
-        "--no-playlist",
-        "--merge-output-format", "mp4",
-        "-o", `${destBase}.%(ext)s`,
-        canonical,
-      ],
-      { timeout: 20 * 60_000 }
-    );
-    return `${destBase}.mp4`;
+    return downloadYoutube(canonical, destBase, { workDir, audioOnly });
   }
   const res = await fetch(url);
   if (!res.ok || !res.body) throw new Error(`Video download failed (${res.status})`);
@@ -205,7 +199,15 @@ async function processJob(jobId: string): Promise<void> {
         message: isYoutubeUrl(job.videoUrl) ? "Downloading from YouTube" : "Downloading video",
       },
     });
-    const localVideo = await downloadSource(job.videoUrl, videoPath);
+    // Transcript-only jobs never look at a frame, so there is no reason to pull
+    // the video stream: it is bandwidth, time and (behind a metered proxy)
+    // money spent on bytes that get discarded.
+    const localVideo = await downloadSource(
+      job.videoUrl,
+      videoPath,
+      workDir,
+      options.outputType === "transcript"
+    );
 
     const result = await processVideo({
       videoPath: localVideo,
@@ -287,8 +289,18 @@ async function processJob(jobId: string): Promise<void> {
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    // YoutubeDownloadError carries a message written for the customer; its raw
+    // yt-dlp output goes to the run log only. Everything else falls back to the
+    // exception message, truncated so a stack-trace-sized string can't land in
+    // the dashboard.
+    const message =
+      err instanceof YoutubeDownloadError
+        ? err.message
+        : (err instanceof Error ? err.message : String(err)).slice(0, 500);
     console.error(`[worker] job ${jobId} failed:`, message);
+    if (err instanceof YoutubeDownloadError) {
+      console.error(`[worker] yt-dlp detail:\n${err.detail}`);
+    }
     await refundReservation(job).catch((e) => console.error("[worker] refund failed", e));
     await prisma.job.update({
       where: { id: jobId },

@@ -67,14 +67,16 @@ export async function processVideo(opts: {
   const set = (stage: JobStage, progress: number, message: string) =>
     onProgress({ stage, progress, message });
 
-  // 1. Probe
+  const transcriptOnly = options.outputType === "transcript";
+
+  // 1. Probe. Transcript-only jobs are handed an audio-only download on
+  //    purpose (nothing downstream looks at a frame), so a missing video
+  //    stream is expected there rather than a sign of a corrupt file.
   await set("probing", 5, "Analyzing video (ffprobe)");
-  const meta = await probeVideo(videoPath);
+  const meta = await probeVideo(videoPath, { requireVideo: !transcriptOnly });
   if (!meta.hasAudio) throw new Error("The video has no audio track.");
   if (meta.durationSec < 1) throw new Error("Unreadable or empty video.");
   if (opts.onProbe) await opts.onProbe(meta);
-
-  const transcriptOnly = options.outputType === "transcript";
 
   // 2. Media extraction. For a full skill.md this is a single ffmpeg decode
   //    producing the audio chunks, the sampled frames and the scene-change
