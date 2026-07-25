@@ -38,6 +38,12 @@ import type { Job } from "@prisma/client";
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 5000);
 const TMP_BASE = process.env.WORKER_TMP_DIR ?? os.tmpdir();
 const PROGRESS_MIN_INTERVAL_MS = 1500;
+// Must stay comfortably below STALE_PROCESSING_MIN so a few missed beats don't
+// look like a dead worker.
+const HEARTBEAT_MS = Number(process.env.HEARTBEAT_MS ?? 30_000);
+// Re-checked worker-side against the real probed duration: the value the API
+// route validated came from scraping the watch page and can be wrong.
+const FREE_TRANSCRIPT_MAX_MIN = Number(process.env.FREE_TRANSCRIPT_MAX_MINUTES ?? 20);
 
 // Drain mode: process everything queued, then exit. Used by the GitHub Actions
 // workflow (each dispatch spins a runner, drains the queue and shuts down).
@@ -117,15 +123,16 @@ async function requeueStaleJobs(): Promise<void> {
 
 /** Refund the whole reservation when a job fails. */
 async function refundReservation(job: Job): Promise<void> {
-  if (job.creditsReserved > 0) {
-    await recordCredit(prisma, {
-      userId: job.userId,
-      amount: job.creditsReserved,
-      type: "refund",
-      description: `Refund — ${job.fileName}`,
-      jobId: job.id,
-    });
-  }
+  // Anonymous free-tier jobs never reserved anything, so there is nothing to
+  // give back and no account to give it to.
+  if (!job.userId || job.creditsReserved <= 0) return;
+  await recordCredit(prisma, {
+    userId: job.userId,
+    amount: job.creditsReserved,
+    type: "refund",
+    description: `Refund — ${job.fileName}`,
+    jobId: job.id,
+  });
 }
 
 /** Reconcile reserved vs. actual cost on success; returns the amount charged. */
@@ -134,6 +141,9 @@ async function settleUsage(
   actualDurationSec: number,
   outputType: "skill" | "transcript"
 ): Promise<number> {
+  const userId = job.userId;
+  if (!userId) return 0; // free tier: no ledger entry, nothing charged
+
   const actual = creditCost(actualDurationSec, outputType);
   const adjustment = job.creditsReserved - actual; // >0 give back, <0 charge extra
   if (adjustment !== 0) {
@@ -141,14 +151,14 @@ async function settleUsage(
       let amount = adjustment;
       if (amount < 0) {
         const u = await tx.user.findUnique({
-          where: { id: job.userId },
+          where: { id: userId },
           select: { credits: true },
         });
         amount = Math.max(amount, -(u?.credits ?? 0)); // never drive the balance negative
       }
       if (amount !== 0) {
         await recordCredit(tx, {
-          userId: job.userId,
+          userId,
           amount,
           type: "adjustment",
           description: `Credit adjustment — ${job.fileName}`,
@@ -169,6 +179,18 @@ async function processJob(jobId: string): Promise<void> {
 
   // Throttle progress-only writes; always flush on stage/message changes.
   let lastWrite = 0;
+
+  // Some stages run for minutes without emitting a single progress update — the
+  // ffmpeg decode and the OCR sweep both can. requeueStaleJobs reads a quiet
+  // row as a dead worker and puts the job back in the queue, so a job that is
+  // still running gets picked up again and the entire AI bill is paid twice.
+  // A heartbeat keeps updatedAt fresh for the whole run, whatever stage is
+  // currently silent. Raw SQL because @updatedAt is Prisma-managed.
+  const heartbeat = setInterval(() => {
+    prisma
+      .$executeRaw`UPDATE "Job" SET "updatedAt" = now() WHERE id = ${jobId} AND status = 'processing'`
+      .catch((e) => console.error("[worker] heartbeat failed", e));
+  }, HEARTBEAT_MS);
 
   try {
     if (!job.videoUrl) throw new Error("No video associated with this job.");
@@ -193,9 +215,21 @@ async function processJob(jobId: string): Promise<void> {
       // Guard against under-reported client durations: refuse to burn expensive
       // AI work the user cannot pay for (only the cheap probe has run so far).
       onProbe: async (meta) => {
+        const userId = job.userId;
+        if (!userId) {
+          // Free tier: no balance to check, but the duration cap still applies —
+          // the submitted length is only a scrape of the watch page.
+          const maxSec = FREE_TRANSCRIPT_MAX_MIN * 60;
+          if (meta.durationSec > maxSec) {
+            throw new Error(
+              `Video is ${Math.round(meta.durationSec / 60)} min; the free transcript covers up to ${FREE_TRANSCRIPT_MAX_MIN} min.`
+            );
+          }
+          return;
+        }
         const actual = creditCost(meta.durationSec, options.outputType);
         const u = await prisma.user.findUnique({
-          where: { id: job.userId },
+          where: { id: userId },
           select: { credits: true },
         });
         const affordable = job.creditsReserved + (u?.credits ?? 0);
@@ -267,6 +301,7 @@ async function processJob(jobId: string): Promise<void> {
       },
     });
   } finally {
+    clearInterval(heartbeat);
     await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
   }
 }

@@ -115,7 +115,7 @@ export async function GET() {
   const userId = await currentUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const jobs = await prisma.job.findMany({
+  const rows = await prisma.job.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
     take: 50,
@@ -134,7 +134,16 @@ export async function GET() {
       skillUrl: true,
       createdAt: true,
       updatedAt: true,
+      isPublic: true,
+      publicSlug: true,
+      options: true,
     },
   });
+
+  // Surface outputType flat so the UI doesn't have to reach into the options blob.
+  const jobs = rows.map(({ options, ...job }) => ({
+    ...job,
+    outputType: (options as { outputType?: string } | null)?.outputType ?? "skill",
+  }));
   return NextResponse.json({ jobs });
 }

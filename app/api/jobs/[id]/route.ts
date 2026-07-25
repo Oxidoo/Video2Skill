@@ -27,9 +27,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       reportUrl: true,
       createdAt: true,
       updatedAt: true,
+      isPublic: true,
+      publicSlug: true,
+      options: true,
     },
   });
 
   if (!job) return NextResponse.json({ error: "Job not found" }, { status: 404 });
-  return NextResponse.json(job);
+
+  const { options, ...rest } = job;
+  return NextResponse.json({
+    ...rest,
+    outputType: (options as { outputType?: string } | null)?.outputType ?? "skill",
+  });
 }
