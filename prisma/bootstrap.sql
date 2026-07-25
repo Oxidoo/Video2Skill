@@ -3,8 +3,9 @@
 --
 -- Usage (zéro outil local) : Supabase → SQL Editor → colle ce fichier → Run.
 -- Alternative : `npm run db:push` (utilise DIRECT_URL).
--- À ne rejouer que sur une base vide ; en cas d'évolution du schéma, préférer
--- `npm run db:push`.
+--
+-- À ne jouer que sur une base VIDE. Pour faire évoluer une base existante,
+-- utilise prisma/migrate.sql (idempotent) ou `npm run db:push`.
 -- ============================================================================
 
 -- CreateSchema
@@ -63,7 +64,7 @@ CREATE TABLE "User" (
 -- CreateTable
 CREATE TABLE "Job" (
     "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
+    "userId" TEXT,
     "fileName" TEXT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'queued',
     "stage" TEXT NOT NULL DEFAULT 'queued',
@@ -81,6 +82,11 @@ CREATE TABLE "Job" (
     "meta" JSONB,
     "creditsReserved" INTEGER NOT NULL DEFAULT 0,
     "creditsCharged" INTEGER,
+    "isPublic" BOOLEAN NOT NULL DEFAULT false,
+    "publicSlug" TEXT,
+    "publicTitle" TEXT,
+    "publicSummary" TEXT,
+    "publishedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -117,10 +123,16 @@ CREATE UNIQUE INDEX "VerificationToken_identifier_token_key" ON "VerificationTok
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Job_publicSlug_key" ON "Job"("publicSlug");
+
+-- CreateIndex
 CREATE INDEX "Job_status_createdAt_idx" ON "Job"("status", "createdAt");
 
 -- CreateIndex
 CREATE INDEX "Job_userId_createdAt_idx" ON "Job"("userId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "Job_isPublic_publishedAt_idx" ON "Job"("isPublic", "publishedAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "CreditTransaction_stripeSessionId_key" ON "CreditTransaction"("stripeSessionId");

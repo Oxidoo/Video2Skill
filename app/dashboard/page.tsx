@@ -27,7 +27,7 @@ export default async function DashboardPage() {
       <header>
         <h1 className="text-2xl font-bold text-gray-900">Studio</h1>
         <p className="mt-1 text-gray-500">
-          Drop a video or paste a link — turn it into a skill.md your AI can use.
+          Drop a video file — turn it into a skill.md your AI can use.
         </p>
       </header>
       <Studio />

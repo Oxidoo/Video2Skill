@@ -31,8 +31,6 @@ import { putArtifact } from "../src/lib/blob";
 import { recordCredit } from "../src/lib/credits";
 import { creditCost } from "../src/lib/billing";
 import { JobOptions } from "../src/lib/schemas";
-import { isYoutubeUrl, normalizeYoutubeUrl } from "../src/lib/youtube";
-import { downloadYoutube, YoutubeDownloadError } from "../src/lib/youtube-download";
 import type { Job } from "@prisma/client";
 
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 5000);
@@ -41,9 +39,6 @@ const PROGRESS_MIN_INTERVAL_MS = 1500;
 // Must stay comfortably below STALE_PROCESSING_MIN so a few missed beats don't
 // look like a dead worker.
 const HEARTBEAT_MS = Number(process.env.HEARTBEAT_MS ?? 30_000);
-// Re-checked worker-side against the real probed duration: the value the API
-// route validated came from scraping the watch page and can be wrong.
-const FREE_TRANSCRIPT_MAX_MIN = Number(process.env.FREE_TRANSCRIPT_MAX_MINUTES ?? 20);
 
 // Drain mode: process everything queued, then exit. Used by the GitHub Actions
 // workflow (each dispatch spins a runner, drains the queue and shuts down).
@@ -73,24 +68,12 @@ async function claimNextJob(): Promise<string | null> {
   return rows[0]?.id ?? null;
 }
 
-/**
- * Download the source to a local file and return its path. Handles both blob
- * URLs (direct fetch) and YouTube links (via yt-dlp).
- */
-async function downloadSource(
-  url: string,
-  destBase: string,
-  workDir: string,
-  audioOnly: boolean
-): Promise<string> {
-  if (isYoutubeUrl(url)) {
-    const canonical = normalizeYoutubeUrl(url) ?? url;
-    return downloadYoutube(canonical, destBase, { workDir, audioOnly });
-  }
+/** Download the uploaded video from blob storage to a local file. */
+async function downloadSource(url: string, dest: string): Promise<string> {
   const res = await fetch(url);
   if (!res.ok || !res.body) throw new Error(`Video download failed (${res.status})`);
-  await streamPipeline(Readable.fromWeb(res.body as never), fsSync.createWriteStream(destBase));
-  return destBase;
+  await streamPipeline(Readable.fromWeb(res.body as never), fsSync.createWriteStream(dest));
+  return dest;
 }
 
 const STALE_PROCESSING_MIN = Number(process.env.STALE_PROCESSING_MIN ?? 2);
@@ -196,18 +179,10 @@ async function processJob(jobId: string): Promise<void> {
       data: {
         stage: "uploaded",
         progress: 3,
-        message: isYoutubeUrl(job.videoUrl) ? "Downloading from YouTube" : "Downloading video",
+        message: "Downloading video",
       },
     });
-    // Transcript-only jobs never look at a frame, so there is no reason to pull
-    // the video stream: it is bandwidth, time and (behind a metered proxy)
-    // money spent on bytes that get discarded.
-    const localVideo = await downloadSource(
-      job.videoUrl,
-      videoPath,
-      workDir,
-      options.outputType === "transcript"
-    );
+    const localVideo = await downloadSource(job.videoUrl, videoPath);
 
     const result = await processVideo({
       videoPath: localVideo,
@@ -218,17 +193,7 @@ async function processJob(jobId: string): Promise<void> {
       // AI work the user cannot pay for (only the cheap probe has run so far).
       onProbe: async (meta) => {
         const userId = job.userId;
-        if (!userId) {
-          // Free tier: no balance to check, but the duration cap still applies —
-          // the submitted length is only a scrape of the watch page.
-          const maxSec = FREE_TRANSCRIPT_MAX_MIN * 60;
-          if (meta.durationSec > maxSec) {
-            throw new Error(
-              `Video is ${Math.round(meta.durationSec / 60)} min; the free transcript covers up to ${FREE_TRANSCRIPT_MAX_MIN} min.`
-            );
-          }
-          return;
-        }
+        if (!userId) return;
         const actual = creditCost(meta.durationSec, options.outputType);
         const u = await prisma.user.findUnique({
           where: { id: userId },
@@ -289,18 +254,10 @@ async function processJob(jobId: string): Promise<void> {
       },
     });
   } catch (err) {
-    // YoutubeDownloadError carries a message written for the customer; its raw
-    // yt-dlp output goes to the run log only. Everything else falls back to the
-    // exception message, truncated so a stack-trace-sized string can't land in
-    // the dashboard.
-    const message =
-      err instanceof YoutubeDownloadError
-        ? err.message
-        : (err instanceof Error ? err.message : String(err)).slice(0, 500);
+    // Truncated so a stack-trace-sized string can't land in the dashboard,
+    // which renders Job.error verbatim.
+    const message = (err instanceof Error ? err.message : String(err)).slice(0, 500);
     console.error(`[worker] job ${jobId} failed:`, message);
-    if (err instanceof YoutubeDownloadError) {
-      console.error(`[worker] yt-dlp detail:\n${err.detail}`);
-    }
     await refundReservation(job).catch((e) => console.error("[worker] refund failed", e));
     await prisma.job.update({
       where: { id: jobId },

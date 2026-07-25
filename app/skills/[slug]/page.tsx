@@ -23,7 +23,6 @@ async function loadPublished(slug: string) {
       durationSec: true,
       qualityScore: true,
       skillUrl: true,
-      sourceUrl: true,
       fileName: true,
     },
   });
@@ -136,16 +135,6 @@ export default async function PublishedSkillPage({
               Quality score {job.qualityScore}/100
             </span>
           )}
-          {job.sourceUrl && (
-            <a
-              href={job.sourceUrl}
-              target="_blank"
-              rel="nofollow noopener noreferrer"
-              className="rounded-full bg-gray-100 px-3 py-1 text-gray-600 hover:text-gray-900"
-            >
-              Original video ↗
-            </a>
-          )}
         </div>
 
         <div className="grid gap-10 lg:grid-cols-[1fr_220px]">
@@ -183,18 +172,12 @@ export default async function PublishedSkillPage({
             analysis of each key frame, then audited the result against that evidence. Do the same
             with your own video.
           </p>
-          <div className="mt-5 flex flex-wrap gap-3">
+          <div className="mt-5">
             <Link
               href="/"
               className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
             >
               Generate your own skill.md
-            </Link>
-            <Link
-              href="/free-youtube-transcript"
-              className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
-            >
-              Free YouTube transcript
             </Link>
           </div>
         </section>

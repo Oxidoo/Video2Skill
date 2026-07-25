@@ -107,10 +107,7 @@ export const config = {
   // whole AI bill gets paid twice.
   heartbeatMs: num(process.env.HEARTBEAT_MS, 30_000),
 
-  // --- Free tier / public pages ---------------------------------------------
-  freeTranscriptEnabled: bool(process.env.FREE_TRANSCRIPT_ENABLED, true),
-  freeTranscriptMaxMinutes: num(process.env.FREE_TRANSCRIPT_MAX_MINUTES, 20),
-  freeTranscriptPerDay: num(process.env.FREE_TRANSCRIPT_PER_DAY, 3),
+  // --- Public pages ---------------------------------------------------------
   publicSkillsEnabled: bool(process.env.PUBLIC_SKILLS_ENABLED, true),
 };
 

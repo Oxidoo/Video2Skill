@@ -8,14 +8,12 @@ import { Dropzone } from "./Dropzone";
 import { ProgressPanel } from "./ProgressPanel";
 import { DownloadButton } from "./DownloadButton";
 import { Spinner } from "./Spinner";
-import { isYoutubeUrl } from "@/lib/youtube";
 import type { JobStatus } from "@/lib/types";
 
 const CPM = Number(process.env.NEXT_PUBLIC_CREDITS_PER_MINUTE ?? 1);
 const TMPC = Number(process.env.NEXT_PUBLIC_TRANSCRIPT_MINUTES_PER_CREDIT ?? 3);
 
 type Phase = "idle" | "uploading" | "processing" | "done" | "error";
-type Source = "file" | "youtube";
 type OutputType = "skill" | "transcript";
 
 function estimateCredits(durationSec: number, outputType: OutputType) {
@@ -46,15 +44,10 @@ export function Studio() {
   const { data: session, update } = useSession();
   const credits = session?.user?.credits ?? 0;
 
-  const [source, setSource] = useState<Source>("file");
   const [outputType, setOutputType] = useState<OutputType>("skill");
 
   const [file, setFile] = useState<File | null>(null);
   const [fileDuration, setFileDuration] = useState(0);
-
-  const [youtubeUrl, setYoutubeUrl] = useState("");
-  const [ytInfo, setYtInfo] = useState<{ durationSec: number; title: string | null } | null>(null);
-  const [ytLoading, setYtLoading] = useState(false);
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [uploadPct, setUploadPct] = useState(0);
@@ -87,31 +80,6 @@ export function Studio() {
     }
   }, [update]);
 
-  // Look up YouTube duration/title to preview the cost.
-  useEffect(() => {
-    if (source !== "youtube") return;
-    const u = youtubeUrl.trim();
-    setYtInfo(null);
-    if (!isYoutubeUrl(u)) return;
-    let cancelled = false;
-    setYtLoading(true);
-    const t = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/youtube-info?url=${encodeURIComponent(u)}`);
-        const data = await res.json();
-        if (!cancelled && res.ok) setYtInfo({ durationSec: data.durationSec, title: data.title });
-      } catch {
-        // ignore
-      } finally {
-        if (!cancelled) setYtLoading(false);
-      }
-    }, 600);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [youtubeUrl, source]);
-
   function handleFile(f: File) {
     setFile(f);
     setFileDuration(0);
@@ -126,14 +94,11 @@ export function Studio() {
     v.src = URL.createObjectURL(f);
   }
 
-  const durationSec = source === "file" ? fileDuration : (ytInfo?.durationSec ?? 0);
+  const durationSec = fileDuration;
   const knownDuration = durationSec > 0;
   const estimated = estimateCredits(durationSec, outputType);
   const insufficient = knownDuration && estimated > credits;
-  const ready =
-    source === "file"
-      ? Boolean(file) && fileDuration > 0
-      : isYoutubeUrl(youtubeUrl.trim());
+  const ready = Boolean(file) && fileDuration > 0;
 
   function poll(jobId: string) {
     stopPoll();
@@ -166,27 +131,21 @@ export function Studio() {
     setUploadPct(0);
     try {
       const jobOptions = { ...options, outputType };
-      let payload: Record<string, unknown>;
 
-      if (source === "youtube") {
-        setPhase("processing");
-        payload = { youtubeUrl: youtubeUrl.trim(), options: jobOptions };
-      } else {
-        setPhase("uploading");
-        const blob = await upload(file!.name, file!, {
-          access: "public",
-          handleUploadUrl: "/api/upload",
-          multipart: true,
-          onUploadProgress: (p) => setUploadPct(Math.round(p.percentage)),
-        });
-        payload = {
-          blobUrl: blob.url,
-          fileName: file!.name,
-          videoBytes: file!.size,
-          durationSec: fileDuration,
-          options: jobOptions,
-        };
-      }
+      setPhase("uploading");
+      const blob = await upload(file!.name, file!, {
+        access: "public",
+        handleUploadUrl: "/api/upload",
+        multipart: true,
+        onUploadProgress: (p) => setUploadPct(Math.round(p.percentage)),
+      });
+      const payload = {
+        blobUrl: blob.url,
+        fileName: file!.name,
+        videoBytes: file!.size,
+        durationSec: fileDuration,
+        options: jobOptions,
+      };
 
       const res = await fetch("/api/jobs", {
         method: "POST",
@@ -216,8 +175,6 @@ export function Studio() {
     stopPoll();
     setFile(null);
     setFileDuration(0);
-    setYoutubeUrl("");
-    setYtInfo(null);
     setPhase("idle");
     setUploadPct(0);
     setJob(null);
@@ -229,49 +186,7 @@ export function Studio() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Source tabs */}
-      <div className="flex gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1 text-sm font-medium">
-        {(["file", "youtube"] as Source[]).map((s) => (
-          <button
-            key={s}
-            type="button"
-            disabled={busy}
-            onClick={() => setSource(s)}
-            className={`flex-1 rounded-lg px-3 py-2 transition ${
-              source === s ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-800"
-            }`}
-          >
-            {s === "file" ? "Upload a file" : "YouTube link"}
-          </button>
-        ))}
-      </div>
-
-      {source === "file" ? (
-        <Dropzone onFile={handleFile} disabled={busy} file={file} />
-      ) : (
-        <div>
-          <input
-            type="url"
-            inputMode="url"
-            disabled={busy}
-            value={youtubeUrl}
-            onChange={(e) => setYoutubeUrl(e.target.value)}
-            placeholder="https://www.youtube.com/watch?v=…"
-            className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-400"
-          />
-          {source === "youtube" && ytLoading && (
-            <p className="mt-2 flex items-center gap-2 text-xs text-gray-400">
-              <Spinner size={12} /> Reading video…
-            </p>
-          )}
-          {ytInfo?.title && (
-            <p className="mt-2 truncate text-sm text-gray-700">🎬 {ytInfo.title}</p>
-          )}
-          <p className="mt-1 text-xs text-gray-400">
-            Paste a public YouTube link. Make sure you have the rights to process it.
-          </p>
-        </div>
-      )}
+      <Dropzone onFile={handleFile} disabled={busy} file={file} />
 
       {/* Output type */}
       <div className="grid gap-2 sm:grid-cols-2">

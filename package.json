@@ -10,7 +10,6 @@
     "lint": "next lint",
     "worker": "tsx worker/index.mts",
     "worker:drain": "tsx worker/index.mts --drain",
-    "yt:check": "tsx worker/yt-check.mts",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

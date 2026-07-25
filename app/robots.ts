@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       // /skills is the public library and must stay crawlable; /dashboard and
       // the API are per-user surfaces with nothing to index.
-      allow: ["/", "/skills", "/free-youtube-transcript"],
+      allow: ["/", "/skills"],
       disallow: ["/api/", "/dashboard"],
     },
     sitemap: `${SITE.url}/sitemap.xml`,
